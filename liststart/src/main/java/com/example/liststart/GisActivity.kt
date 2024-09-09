@@ -96,12 +96,8 @@ class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.Con
             .build()
 
         // 위치 권한 요청
-        if (ContextCompat.checkSelfPermission(
-                this,
-                android.Manifest.permission.ACCESS_FINE_LOCATION
-            )
-            != PackageManager.PERMISSION_GRANTED
-        ) {
+        if (ContextCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_FINE_LOCATION)
+            != PackageManager.PERMISSION_GRANTED) {
             requestPermissionLauncher.launch(
                 arrayOf(android.Manifest.permission.ACCESS_FINE_LOCATION)
             )
@@ -109,14 +105,13 @@ class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.Con
             apiClient.connect()
         }
 
-            // 규제구역 버튼 처리
-            val controlLineButton = findViewById<ImageButton>(R.id.controllLine)
-            controlLineButton.setOnClickListener {
-                if (isRestrictedAreaVisible) {
-                    hideRestrictedAreas() // 규제구역 숨기기
-                } else {
-                    loadDevelopmentRestrictedAreas() // 규제구역 표시
-                }
+        // 규제구역 버튼 처리
+        val controlLineButton = findViewById<ImageButton>(R.id.controllLine)
+        controlLineButton.setOnClickListener {
+            if (isRestrictedAreaVisible) {
+                hideRestrictedAreas() // 규제구역 숨기기
+            } else {
+                loadDevelopmentRestrictedAreas() // 규제구역 표시
             }
         }
 
@@ -133,17 +128,15 @@ class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.Con
             centerMarkerPreview.visibility = if (isMarkerPreviewVisible) View.VISIBLE else View.GONE
             selectLocationTextView.visibility = if (isMarkerPreviewVisible) View.VISIBLE else View.GONE
         }
+
         // '지정하기' 버튼 클릭 이벤트 설정
-        val selectLocationButton = findViewById<TextView>(R.id.selectLocationTextView) // 지정하기 버튼의 ID로 대체
+        val selectLocationButton = findViewById<TextView>(R.id.selectLocationTextView)
         selectLocationButton.setOnClickListener {
-            // 현재 지도 중심 좌표 가져오기
             val currentCenter = googleMap?.cameraPosition?.target
 
             if (currentCenter != null) {
                 // 중심 좌표에 마커 추가
                 addMarkerAtLocation(currentCenter.latitude, currentCenter.longitude, "선택된 위치")
-
-                // 좌표를 Toast 메시지로 출력
                 Toast.makeText(this, "마커가 추가되었습니다: ${currentCenter.latitude}, ${currentCenter.longitude}", Toast.LENGTH_SHORT).show()
             } else {
                 Toast.makeText(this, "현재 위치를 가져올 수 없습니다.", Toast.LENGTH_SHORT).show()
@@ -163,55 +156,6 @@ class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.Con
             moveToCurrentLocation()
         }
     }
-
-        // '지정하기' 버튼 클릭 이벤트 설정
-        val selectLocationButton = findViewById<TextView>(R.id.selectLocationTextView)
-        selectLocationButton.setOnClickListener {
-            val currentCenter = googleMap?.cameraPosition?.target
-
-
-            if (currentCenter != null) {
-                // 중심 좌표에 마커 추가
-                addMarkerAtLocation(currentCenter.latitude, currentCenter.longitude, "선택된 위치")
-                Toast.makeText(this, "마커가 추가되었습니다: ${currentCenter.latitude}, ${currentCenter.longitude}", Toast.LENGTH_SHORT).show()
-            } else {
-                Toast.makeText(this, "현재 위치를 가져올 수 없습니다.", Toast.LENGTH_SHORT).show()
-            }
-
-            // 마커 추가
-            googleMap?.addMarker(
-                MarkerOptions().position(location).title("사업 위치")
-            )
-
-        }
-
-        // 지도 중심 위치 업데이트 리스너
-        googleMap?.setOnCameraIdleListener {
-            currentCenter = googleMap?.cameraPosition?.target
-        }
-    }
-
-    private fun moveToCurrentLocation() {
-        if (ContextCompat.checkSelfPermission(
-                this,
-                android.Manifest.permission.ACCESS_FINE_LOCATION
-            ) == PackageManager.PERMISSION_GRANTED
-        ) {
-            providerClient.lastLocation.addOnSuccessListener(this, OnSuccessListener<Location> { location ->
-                if (location != null) {
-                    val latitude = location.latitude
-                    val longitude = location.longitude
-                    moveMap(latitude, longitude)
-                    addMarkerAtLocation(latitude, longitude, "현재 위치", BitmapDescriptorFactory.HUE_BLUE)
-                } else {
-                    Toast.makeText(this, "현재 위치를 가져올 수 없습니다.", Toast.LENGTH_SHORT).show()
-                }
-            })
-        } else {
-            Toast.makeText(this, "위치 권한이 필요합니다.", Toast.LENGTH_SHORT).show()
-        }
-    }
-
 
     override fun onMapReady(map: GoogleMap?) {
         googleMap = map
@@ -247,48 +191,10 @@ class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.Con
                     Toast.makeText(this, "현재 위치를 가져올 수 없습니다.", Toast.LENGTH_SHORT).show()
                 }
             })
-
-    private fun moveMap(latitude: Double, longitude: Double) {
-        val latLng = LatLng(latitude, longitude)
-        googleMap?.moveCamera(CameraUpdateFactory.newLatLngZoom(latLng, 15f))
-    }
-
-    // 중심 좌표에 마커를 추가하는 함수
-    private fun addMarkerAtLocation(latitude: Double, longitude: Double, title: String, markerColor: Float = BitmapDescriptorFactory.HUE_RED) {
-        val latLng = LatLng(latitude, longitude)
-        val markerOption = MarkerOptions()
-            .position(latLng)
-            .title(title)
-            .icon(BitmapDescriptorFactory.defaultMarker(markerColor)) // 기본 마커 색상 설정
-        googleMap?.addMarker(markerOption)
-    }
-
-    override fun onConnected(p0: Bundle?) {
-        val lat = intent.getDoubleExtra("lat", 0.0)
-        val long = intent.getDoubleExtra("long", 0.0)
-
-        if (lat == 0.0 && long == 0.0) {
-            // 현재 위치 사용
-            if (ContextCompat.checkSelfPermission(
-                    this,
-                    android.Manifest.permission.ACCESS_FINE_LOCATION
-                ) == PackageManager.PERMISSION_GRANTED
-            ) {
-                providerClient.lastLocation.addOnSuccessListener(this, OnSuccessListener<Location> { location ->
-                    if (location != null) {
-                        val latitude = location.latitude
-                        val longitude = location.longitude
-                        moveMap(latitude, longitude)
-                    }
-                })
-            }
-
         } else {
-            // 전달된 좌표로 지도 이동
-            moveMap(lat, long)
+            Toast.makeText(this, "위치 권한이 필요합니다.", Toast.LENGTH_SHORT).show()
         }
     }
-
 
     private fun moveMap(latitude: Double, longitude: Double) {
         val latLng = LatLng(latitude, longitude)
@@ -359,7 +265,6 @@ class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.Con
             val url = urls[0]
             val result = StringBuilder()
 
-
             try {
                 val conn = URL(url).openConnection() as HttpURLConnection
                 conn.requestMethod = "GET"
@@ -384,7 +289,6 @@ class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.Con
 
             result?.let {
                 val jsonObject = JSONObject(it)
-
                 val response = jsonObject.getJSONObject("response")
                 val status = response.getString("status")
                 if (status != "OK") {
@@ -409,7 +313,6 @@ class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.Con
                         val lat = point.getDouble(1)
                         polygonOptions.add(LatLng(lat, lon))
                     }
-
 
                     polygonOptions.fillColor(0x55FF0000)  // 반투명 빨간색
                     polygonOptions.strokeColor(0xFFFF0000.toInt())  // 빨간색 테두리
