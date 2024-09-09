@@ -56,6 +56,48 @@ class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.Con
     private lateinit var apiClient: GoogleApiClient
     private lateinit var providerClient: com.google.android.gms.location.FusedLocationProviderClient
 
+    private fun isLocationInRestrictedArea(lat: Double, long: Double): Boolean {
+        for (polygon in polygonList) {
+            val polygonBounds = polygon.points
+            val point = LatLng(lat, long)
+
+            // 주어진 좌표가 폴리곤 내에 있는지 확인
+            if (containsLocation(point, polygonBounds)) {
+                return true
+            }
+        }
+        return false
+    }
+    // LatLng가 폴리곤 안에 있는지 확인하는 함수
+    private fun containsLocation(point: LatLng, polygon: List<LatLng>): Boolean {
+        var intersectCount = 0
+        for (j in polygon.indices) {
+            val vertex1 = polygon[j]
+            val vertex2 = polygon[(j + 1) % polygon.size]
+            if (rayCastIntersect(point, vertex1, vertex2)) {
+                intersectCount++
+            }
+        }
+        return (intersectCount % 2 == 1) // 홀수이면 폴리곤 안에 있음
+    }
+    // ray-casting 알고리즘 사용하여 포인트가 폴리곤 내부에 있는지 확인
+    private fun rayCastIntersect(point: LatLng, vertex1: LatLng, vertex2: LatLng): Boolean {
+        val pointLat = point.latitude
+        val pointLng = point.longitude
+        val vertex1Lat = vertex1.latitude
+        val vertex1Lng = vertex1.longitude
+        val vertex2Lat = vertex2.latitude
+        val vertex2Lng = vertex2.longitude
+
+        if ((vertex1Lng > pointLng) != (vertex2Lng > pointLng)) {
+            val intersectLat = (vertex2Lat - vertex1Lat) * (pointLng - vertex1Lng) / (vertex2Lng - vertex1Lng) + vertex1Lat
+            if (pointLat < intersectLat) {
+                return true
+            }
+        }
+        return false
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_gis)
@@ -129,15 +171,21 @@ class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.Con
             selectLocationTextView.visibility = if (isMarkerPreviewVisible) View.VISIBLE else View.GONE
         }
 
+
         // '지정하기' 버튼 클릭 이벤트 설정
         val selectLocationButton = findViewById<TextView>(R.id.selectLocationTextView)
         selectLocationButton.setOnClickListener {
             val currentCenter = googleMap?.cameraPosition?.target
 
             if (currentCenter != null) {
-                // 중심 좌표에 마커 추가
-                addMarkerAtLocation(currentCenter.latitude, currentCenter.longitude, "선택된 위치")
-                Toast.makeText(this, "마커가 추가되었습니다: ${currentCenter.latitude}, ${currentCenter.longitude}", Toast.LENGTH_SHORT).show()
+                // 규제구역 내에 있는지 확인
+                if (isLocationInRestrictedArea(currentCenter.latitude, currentCenter.longitude)) {
+                    Toast.makeText(this, "규제구역입니다. 마커를 추가할 수 없습니다.", Toast.LENGTH_SHORT).show()
+                } else {
+                    // 중심 좌표에 마커 추가
+                    addMarkerAtLocation(currentCenter.latitude, currentCenter.longitude, "선택된 위치")
+                    Toast.makeText(this, "마커가 추가되었습니다: ${currentCenter.latitude}, ${currentCenter.longitude}", Toast.LENGTH_SHORT).show()
+                }
             } else {
                 Toast.makeText(this, "현재 위치를 가져올 수 없습니다.", Toast.LENGTH_SHORT).show()
             }
@@ -156,6 +204,7 @@ class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.Con
             moveToCurrentLocation()
         }
     }
+
 
     override fun onMapReady(map: GoogleMap?) {
         googleMap = map
