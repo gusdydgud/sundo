@@ -55,12 +55,12 @@ class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.Con
     private lateinit var rightButton: ImageButton // 수정 적용 버튼
     private lateinit var leftButton: ImageButton // GPS 위치로 이동 버튼
     private var markersList: MutableList<Marker> = mutableListOf() // 추가된 마커들을 관리할 리스트
+    private var markerCounter = 1 //마커 카운트
 
     private var polygonList: MutableList<Polygon> = mutableListOf()
     private var isRestrictedAreaVisible = false // 규제구역 표시 여부
     private var lat: Double = 0.0
     private var long: Double = 0.0
-
     private lateinit var apiClient: GoogleApiClient
     private lateinit var providerClient: com.google.android.gms.location.FusedLocationProviderClient
 
@@ -193,7 +193,7 @@ class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.Con
                     Toast.makeText(this, "규제구역입니다. 마커를 추가할 수 없습니다.", Toast.LENGTH_SHORT).show()
                 } else {
                     // 중심 좌표에 마커 추가
-                    val marker = addMarkerAtLocation(currentCenter.latitude, currentCenter.longitude, "선택된 위치")
+                    val marker = addMarkerAtLocation(currentCenter.latitude, currentCenter.longitude, title+" "+markerCounter)
                     Toast.makeText(this, "마커가 추가되었습니다: ${currentCenter.latitude}, ${currentCenter.longitude}", Toast.LENGTH_SHORT).show()
 
                     // 마커 클릭 시 다이얼로그 호출
@@ -220,9 +220,12 @@ class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.Con
             moveToCurrentLocation()
         }
     }
-
+//현용
     override fun onMapReady(map: GoogleMap?) {
         googleMap = map
+
+        // 커스텀 InfoWindow 어댑터 설정
+        googleMap?.setInfoWindowAdapter(CustomInfoWindowAdapter(this))
 
         // 지도 이동: 전달된 사업 좌표로 이동
         if (lat != 0.0 && long != 0.0) {
@@ -233,14 +236,16 @@ class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.Con
             // 마커 추가
             googleMap?.addMarker(
                 MarkerOptions().position(location).title("사업 위치")
-            )
+            )?.showInfoWindow() // 마커를 추가할 때 InfoWindow를 바로 표시
         }
 
         // 지도 중심 위치 업데이트 리스너
         googleMap?.setOnCameraIdleListener {
             currentCenter = googleMap?.cameraPosition?.target
         }
+
     }
+    //현용
 
     private fun moveToCurrentLocation() {
         if (ContextCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_FINE_LOCATION)
@@ -264,24 +269,51 @@ class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.Con
         val latLng = LatLng(latitude, longitude)
         googleMap?.moveCamera(CameraUpdateFactory.newLatLngZoom(latLng, 15f))
     }
+//현용
+private fun addMarkerAtLocation(
+    latitude: Double,
+    longitude: Double,
+    title: String = "사업지명 $markerCounter",
+    markerColor: Float = BitmapDescriptorFactory.HUE_RED
+): Marker {
+    val latLng = LatLng(latitude, longitude)
+    val markerOption = MarkerOptions()
+        .position(latLng)
+        .title(title)  // 마커 제목 설정
+        .icon(BitmapDescriptorFactory.defaultMarker(markerColor))
 
-    private fun addMarkerAtLocation(latitude: Double, longitude: Double, title: String, markerColor: Float = BitmapDescriptorFactory.HUE_RED): Marker {
-        val latLng = LatLng(latitude, longitude)
-        val markerOption = MarkerOptions()
-            .position(latLng)
-            .title(title)
-            .icon(BitmapDescriptorFactory.defaultMarker(markerColor)) // 기본 마커 색상 설정
+    val marker = googleMap?.addMarker(markerOption)
 
-        val marker = googleMap?.addMarker(markerOption)
-
-        // 마커가 추가되면 리스트에 저장
-        if (marker != null) {
-            markersList.add(marker)
-        }
-        return marker ?: throw IllegalStateException("Marker could not be added")
-
+    // 마커가 성공적으로 추가되면 리스트에 저장하고 카운터를 증가시킵니다.
+    if (marker != null) {
+        markersList.add(marker)
+        markerCounter++ // 마커 추가 후 카운터 증가
+        marker.showInfoWindow() // InfoWindow를 바로 표시
     }
 
+    return marker ?: throw IllegalStateException("Marker could not be added")
+}
+
+
+    class CustomInfoWindowAdapter(private val context: Context) : GoogleMap.InfoWindowAdapter {
+
+        override fun getInfoWindow(marker: Marker): View? {
+            // 기본 InfoWindow 사용
+            return null
+        }
+
+        override fun getInfoContents(marker: Marker): View {
+            // 커스텀 뷰 생성
+            val view = LayoutInflater.from(context).inflate(R.layout.custom_info_window, null)
+
+            // TextView에 마커의 제목 설정
+            val titleTextView = view.findViewById<TextView>(R.id.title)
+            titleTextView.text = marker.title
+
+            return view
+        }
+    }
+//현용
 
     override fun onConnected(p0: Bundle?) {
         val lat = intent.getDoubleExtra("lat", 0.0)
