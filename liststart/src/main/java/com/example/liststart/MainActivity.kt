@@ -21,6 +21,8 @@ import androidx.recyclerview.widget.RecyclerView
 import com.example.liststart.databinding.CustomDialogBinding
 import com.example.liststart.databinding.DeleteDialogBinding
 
+const val TAG = "myLog"
+
 class MainActivity : AppCompatActivity() {
 
     private lateinit var recyclerView: RecyclerView

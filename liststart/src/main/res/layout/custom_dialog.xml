@@ -3,20 +3,17 @@
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:orientation="vertical"
-    android:padding="16dp"
-    android:background="@drawable/rounded_border"> <!-- 배경을 둥근 테두리로 설정 -->
+    >
 
-    <!-- 제목 텍스트 -->
     <TextView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="@string/dialog_title"
         android:textColor="@color/black"
         android:textSize="18sp"
-        android:textStyle="bold"
-        android:paddingStart="5dp" />
+        android:paddingStart="5sp"
+        android:textStyle="bold" />
 
-    <!-- 입력 필드 -->
     <EditText
         android:id="@+id/addEditText"
         android:layout_width="match_parent"
@@ -26,39 +23,34 @@
         android:textColor="@color/black"
         android:textColorHint="@color/darkgray"
         android:textSize="14sp"
-        android:layout_marginTop="8dp"
-        android:background="@android:drawable/edit_text" /> <!-- 기본 EditText 배경 -->
+        android:layout_marginTop="4dp"/>
 
-    <!-- 하단 버튼 영역 -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="horizontal"
         android:gravity="end"
-        android:layout_marginTop="16dp">
-
-        <!-- 취소 버튼 -->
+        android:layout_marginTop="10dp"
+        android:layout_marginEnd="4dp">
         <TextView
             android:id="@+id/dialogCancel"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="@string/dialog_cancel"
             android:textColor="@color/black"
-            android:textSize="16sp"
-            android:textStyle="bold"
-            android:padding="8dp" />
+            android:textSize="18sp"
+            android:textStyle="bold" />
 
-        <!-- 확인 버튼 -->
         <TextView
             android:id="@+id/dialogConfirm"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="@string/dialog_confirm"
             android:textColor="@color/black"
-            android:textSize="16sp"
+            android:textSize="18sp"
             android:textStyle="bold"
-            android:padding="8dp"
-            android:layout_marginStart="16dp"/>
+            android:layout_marginStart="20dp"/>
+
     </LinearLayout>
+
 
 </LinearLayout>

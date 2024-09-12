@@ -1,6 +1,7 @@
 package com.example.liststart
 
 import android.content.Context
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Color
 import android.location.Location
@@ -13,6 +14,8 @@ import android.view.MotionEvent
 
 import android.view.View
 import android.view.ViewGroup
+import android.view.animation.Animation
+import android.view.animation.AnimationUtils
 import android.view.inputmethod.InputMethodManager
 import android.widget.AdapterView
 import android.widget.ArrayAdapter
@@ -28,6 +31,8 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
+import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.RecyclerView
 import com.google.android.gms.common.ConnectionResult
 import com.google.android.gms.common.api.GoogleApiClient
 import com.google.android.gms.location.LocationServices
@@ -42,6 +47,7 @@ import com.google.android.gms.maps.model.MarkerOptions
 import com.google.android.gms.maps.model.Polygon
 import com.google.android.gms.maps.model.PolygonOptions
 import com.google.android.gms.tasks.OnSuccessListener
+//import com.unity3d.player.UnityPlayerActivity
 import org.json.JSONObject
 import java.io.BufferedReader
 import java.io.InputStreamReader
@@ -68,6 +74,13 @@ class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.Con
     private var long: Double = 0.0
     private lateinit var apiClient: GoogleApiClient
     private lateinit var providerClient: com.google.android.gms.location.FusedLocationProviderClient
+    // 수민
+    private lateinit var recyclerLayout: LinearLayout
+    private lateinit var getListButton: LinearLayout
+    private lateinit var recyclerView: RecyclerView
+    private lateinit var itemAdapter: ItemAdapter
+    private var isRecyclerViewVisible = false
+    // 수민
 
 
     // 규제구역 내에 있는지 확인하는 함수
@@ -114,14 +127,32 @@ class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.Con
         return false
     }
 
-    
-    
+
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_gis)
-        
+
         // 인텐트로 전달된 제목 데이터 받기
         title = intent?.getStringExtra("title") ?: "이름 없음"
+
+        // 수민
+        // 전역 데이터를 관리하는 MyApplication 객체 가져오기
+        val app = application as MyApplication
+
+        // RecyclerView 설정
+        recyclerLayout = findViewById(R.id.recyclerLayout)
+        recyclerView = findViewById(R.id.recyclerView)
+
+        recyclerView.layoutManager = LinearLayoutManager(this)
+
+        // itemAdapter 설정 (데이터는 전역 MyApplication에서 가져올 수 있음)
+        itemAdapter = ItemAdapter(isVisible = false) { item -> handleClick(item) }
+        recyclerView.adapter = itemAdapter
+
+        // 전역 데이터 설정
+        itemAdapter.setFilteredList(app.getItemList())
+        // 수민
 
 
         // UI 요소 초기화
@@ -227,8 +258,50 @@ class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.Con
         leftButton.setOnClickListener {
             moveToCurrentLocation()
         }
+        // 수민
+        // 애니메이션 불러오기
+        val slideUpAnimation = AnimationUtils.loadAnimation(this, R.anim.slide_up)
+        val slideDownAnimation = AnimationUtils.loadAnimation(this, R.anim.slide_down)
+
+        // 사업지 목록 버튼 이벤트
+        getListButton = findViewById(R.id.getListButton)
+        getListButton.setOnClickListener {
+            if (!isRecyclerViewVisible) {
+                // 슬라이드 업 애니메이션 실행 후 클릭 가능
+                recyclerLayout.visibility = View.VISIBLE
+                recyclerLayout.startAnimation(slideUpAnimation)
+                isRecyclerViewVisible = true
+                recyclerView.isEnabled = true // 클릭 가능
+                itemAdapter.updateVisibility(true) // 어댑터에서 아이템 클릭 활성화
+            } else {
+                // 슬라이드 다운 애니메이션 실행 후 클릭 불가
+                recyclerLayout.startAnimation(slideDownAnimation)
+                slideDownAnimation.setAnimationListener(object : Animation.AnimationListener {
+                    override fun onAnimationStart(animation: Animation) {}
+
+                    override fun onAnimationEnd(animation: Animation) {
+                        recyclerLayout.visibility = View.GONE
+                        recyclerView.isEnabled = false // 클릭 불가
+                        itemAdapter.updateVisibility(false) // 어댑터에서 아이템 클릭 비활성화
+                    }
+
+                    override fun onAnimationRepeat(animation: Animation) {}
+                })
+                isRecyclerViewVisible = false
+            }
+        }
+        // 수민
+
+        //AR camera
+//        val cameraBtn = findViewById<LinearLayout>(R.id.cameraBtn)
+//        cameraBtn.setOnClickListener{
+//            val intent = Intent(this, UnityPlayerActivity::class.java)
+//            intent.putExtra("unity", "some_value")  // 여기에 문자열 값을 명시적으로 전달
+//            startActivity(intent)
+//        }
     }
-//현용
+
+    //현용
     override fun onMapReady(map: GoogleMap?) {
         googleMap = map
 
@@ -276,30 +349,30 @@ class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.Con
         val latLng = LatLng(latitude, longitude)
         googleMap?.moveCamera(CameraUpdateFactory.newLatLngZoom(latLng, 15f))
     }
-//현용
-private fun addMarkerAtLocation(
-    latitude: Double,
-    longitude: Double,
-    title: String = "사업지명 $markerCounter",
-    markerColor: Float = BitmapDescriptorFactory.HUE_RED
-): Marker {
-    val latLng = LatLng(latitude, longitude)
-    val markerOption = MarkerOptions()
-        .position(latLng)
-        .title(title)  // 마커 제목 설정
-        .icon(BitmapDescriptorFactory.defaultMarker(markerColor))
+    //현용
+    private fun addMarkerAtLocation(
+        latitude: Double,
+        longitude: Double,
+        title: String = "사업지명 $markerCounter",
+        markerColor: Float = BitmapDescriptorFactory.HUE_RED
+    ): Marker {
+        val latLng = LatLng(latitude, longitude)
+        val markerOption = MarkerOptions()
+            .position(latLng)
+            .title(title)  // 마커 제목 설정
+            .icon(BitmapDescriptorFactory.defaultMarker(markerColor))
 
-    val marker = googleMap?.addMarker(markerOption)
+        val marker = googleMap?.addMarker(markerOption)
 
-    // 마커가 성공적으로 추가되면 리스트에 저장하고 카운터를 증가시킵니다.
-    if (marker != null) {
-        markersList.add(marker)
-        markerCounter++ // 마커 추가 후 카운터 증가
-        marker.showInfoWindow() // InfoWindow를 바로 표시
+        // 마커가 성공적으로 추가되면 리스트에 저장하고 카운터를 증가시킵니다.
+        if (marker != null) {
+            markersList.add(marker)
+            markerCounter++ // 마커 추가 후 카운터 증가
+            marker.showInfoWindow() // InfoWindow를 바로 표시
+        }
+
+        return marker ?: throw IllegalStateException("Marker could not be added")
     }
-
-    return marker ?: throw IllegalStateException("Marker could not be added")
-}
 
 
     class CustomInfoWindowAdapter(private val context: Context) : GoogleMap.InfoWindowAdapter {
@@ -369,17 +442,29 @@ private fun addMarkerAtLocation(
         latitudeEditText.setText(marker.position.latitude.toString())
         longitudeEditText.setText(marker.position.longitude.toString())
 
-        // 동적으로 제목 설정 (title과 markerCounter 결합)
+        // 도분초 값 변환
+        val (latDegrees, latMinutes, latSeconds) = decimalToDMS(marker.position.latitude)
+        val (longDegrees, longMinutes, longSeconds) = decimalToDMS(marker.position.longitude)
+
+        // 도분초 값 설정
+        dialogView.findViewById<EditText>(R.id.degrees_lat).setText(latDegrees.toString())
+        dialogView.findViewById<EditText>(R.id.minutes_lat).setText(latMinutes.toString())
+        dialogView.findViewById<EditText>(R.id.seconds_lat).setText(latSeconds.toString())
+
+        dialogView.findViewById<EditText>(R.id.degrees_long).setText(longDegrees.toString())
+        dialogView.findViewById<EditText>(R.id.minutes_long).setText(longMinutes.toString())
+        dialogView.findViewById<EditText>(R.id.seconds_long).setText(longSeconds.toString())
+
+        // 동적으로 제목 설정
         val titleTextView = dialogView.findViewById<TextView>(R.id.title_text)
-        titleTextView.text = "$titleCounter"  // 예: "가산 풍력 디지털 단지 2"
+        titleTextView.text = "$titleCounter"
+
         // 모델 지정 Spinner 설정
         val modelSpinner = dialogView.findViewById<Spinner>(R.id.spinner_model)
         val modelImageView = dialogView.findViewById<ImageView>(R.id.model_image)
 
-
         // 모델 목록
         val models = arrayOf("모델 1", "모델 2", "모델 3")
-        val modelDescriptions = arrayOf("모델 1 설명", "모델 2 설명", "모델 3 설명")
         val modelImages = arrayOf(R.drawable.fan, R.drawable.fan, R.drawable.fan)
 
         // Spinner 어댑터 설정
@@ -389,13 +474,7 @@ private fun addMarkerAtLocation(
 
         // Spinner 선택 이벤트 처리
         modelSpinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
-            override fun onItemSelected(
-                parent: AdapterView<*>,
-                view: View?,
-                position: Int,
-                id: Long
-            ) {
-                // 모델에 해당하는 이미지 및 설명 설정
+            override fun onItemSelected(parent: AdapterView<*>, view: View?, position: Int, id: Long) {
                 modelImageView.setImageResource(modelImages[position])
             }
 
@@ -403,6 +482,27 @@ private fun addMarkerAtLocation(
                 // 선택되지 않았을 때 처리
             }
         }
+
+        // Directions Spinner 설정
+        val directionLatSpinner = dialogView.findViewById<Spinner>(R.id.direction_lat_spinner)
+        val directionLongSpinner = dialogView.findViewById<Spinner>(R.id.direction_long_spinner)
+
+        val directionLatAdapter = ArrayAdapter.createFromResource(
+            this,
+            R.array.latitude_directions,
+            android.R.layout.simple_spinner_item
+        )
+        directionLatAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+        directionLatSpinner.adapter = directionLatAdapter
+
+        val directionLongAdapter = ArrayAdapter.createFromResource(
+            this,
+            R.array.longitude_directions,
+            android.R.layout.simple_spinner_item
+        )
+        directionLongAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+        directionLongSpinner.adapter = directionLongAdapter
+
         // TabHost 설정
         val tabHost = dialogView.findViewById<TabHost>(R.id.tabHost)
         tabHost.setup()
@@ -423,32 +523,70 @@ private fun addMarkerAtLocation(
 
         // 저장하기 클릭 이벤트
         dialogView.findViewById<TextView>(R.id.tv_target).apply {
-            text = "저장하기" // 버튼 텍스트를 '저장하기'로 변경
+            text = "저장하기"
             setOnClickListener {
-                // 사용자가 입력한 새로운 위도와 경도 값을 가져옵니다.
+                // 도분초 및 위도, 경도 값 모두 받기
+                val degreesLat = dialogView.findViewById<EditText>(R.id.degrees_lat).text.toString().toDoubleOrNull()
+                val minutesLat = dialogView.findViewById<EditText>(R.id.minutes_lat).text.toString().toDoubleOrNull()
+                val secondsLat = dialogView.findViewById<EditText>(R.id.seconds_lat).text.toString().toDoubleOrNull()
+
+                val degreesLong = dialogView.findViewById<EditText>(R.id.degrees_long).text.toString().toDoubleOrNull()
+                val minutesLong = dialogView.findViewById<EditText>(R.id.minutes_long).text.toString().toDoubleOrNull()
+                val secondsLong = dialogView.findViewById<EditText>(R.id.seconds_long).text.toString().toDoubleOrNull()
+
                 val newLatitude = latitudeEditText.text.toString().toDoubleOrNull()
                 val newLongitude = longitudeEditText.text.toString().toDoubleOrNull()
 
-                if (newLatitude != null && newLongitude != null) {
-                    // 새 위치로 마커 위치 업데이트
+                // 도분초 및 위도/경도 값이 모두 입력되었는지 확인
+                if (degreesLat != null && minutesLat != null && secondsLat != null &&
+                    degreesLong != null && minutesLong != null && secondsLong != null) {
+                    // 도분초 값을 위도 경도 값으로 변환
+                    val latDecimal = dmsToDecimal(degreesLat, minutesLat, secondsLat)
+                    val longDecimal = dmsToDecimal(degreesLong, minutesLong, secondsLong)
+
+                    // 위도/경도 필드에도 값 반영
+                    latitudeEditText.setText(latDecimal.toString())
+                    longitudeEditText.setText(longDecimal.toString())
+
+                    // 마커의 위치를 새로운 위도/경도로 업데이트
+                    marker.position = LatLng(latDecimal, longDecimal)
+
+                    marker.showInfoWindow()
+                    Toast.makeText(this@GisActivity, "마커 위치가 업데이트되었습니다.", Toast.LENGTH_SHORT).show()
+                    alertDialog.dismiss()
+
+                } else if (newLatitude != null && newLongitude != null) {
+                    // 위도와 경도 값만 입력된 경우, 도분초 값으로 변환
+                    val (convertedLatDegrees, convertedLatMinutes, convertedLatSeconds) = decimalToDMS(newLatitude)
+                    val (convertedLongDegrees, convertedLongMinutes, convertedLongSeconds) = decimalToDMS(newLongitude)
+
+                    dialogView.findViewById<EditText>(R.id.degrees_lat).setText(convertedLatDegrees.toString())
+                    dialogView.findViewById<EditText>(R.id.minutes_lat).setText(convertedLatMinutes.toString())
+                    dialogView.findViewById<EditText>(R.id.seconds_lat).setText(convertedLatSeconds.toString())
+
+                    dialogView.findViewById<EditText>(R.id.degrees_long).setText(convertedLongDegrees.toString())
+                    dialogView.findViewById<EditText>(R.id.minutes_long).setText(convertedLongMinutes.toString())
+                    dialogView.findViewById<EditText>(R.id.seconds_long).setText(convertedLongSeconds.toString())
+
                     marker.position = LatLng(newLatitude, newLongitude)
-                    marker.title = "업데이트된 위치" // 필요한 경우, 제목도 업데이트
-                    marker.showInfoWindow() // InfoWindow 업데이트
+                    marker.showInfoWindow()
                     Toast.makeText(this@GisActivity, "마커 위치가 업데이트되었습니다.", Toast.LENGTH_SHORT).show()
                     alertDialog.dismiss()
                 } else {
-                    Toast.makeText(this@GisActivity, "올바른 위도와 경도를 입력하세요.", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(this@GisActivity, "올바른 값을 입력하세요.", Toast.LENGTH_SHORT).show()
                 }
             }
         }
 
         // 삭제하기 클릭 이벤트
         dialogView.findViewById<TextView>(R.id.tv_delete).setOnClickListener {
-            marker.remove() // 마커 삭제
+            marker.remove()
             Toast.makeText(this, "마커가 삭제되었습니다.", Toast.LENGTH_SHORT).show()
             alertDialog.dismiss()
         }
     }
+
+
 
 
     // 규제구역 로드 함수 수정: 마커 위치를 확인하고 규제구역 내에 있는 마커는 삭제
@@ -570,4 +708,28 @@ private fun addMarkerAtLocation(
         markersList.removeAll(markersToRemove)
 
     }
+    //위도경도 도분초 변환 공식
+    private fun dmsToDecimal(degrees: Double, minutes: Double, seconds: Double): Double {
+        return degrees + (minutes / 60) + (seconds / 3600)
+    }
+    private fun decimalToDMS(decimal: Double): Triple<Double, Double, Double> {
+        val degrees = decimal.toInt()
+        val minutes = ((decimal - degrees) * 60).toInt()
+        val seconds = (((decimal - degrees) * 60) - minutes) * 60
+        return Triple(degrees.toDouble(), minutes.toDouble(), seconds)
+    }
+    // 수민
+    // 목록 클릭 이벤트
+    private fun handleClick(data: Item) {
+        Log.d(TAG, "Clicked item: ${data.title}")
+
+        // 선택한 사업지의 좌표로 이동
+        val latLng = LatLng(data.lat, data.long)
+        googleMap?.moveCamera(CameraUpdateFactory.newLatLngZoom(latLng, 15f))
+
+        // 선택한 위치에 마커 추가
+        addMarkerAtLocation(data.lat, data.long, data.title)
+    }
+    // 수민
+
 }

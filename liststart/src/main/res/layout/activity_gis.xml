@@ -15,7 +15,32 @@
 
     <!-- Top bar with a button, text view, and another button -->
 
+    <!-- recyclerLayout for list -->
+    <LinearLayout
+        android:id="@+id/recyclerLayout"
+        android:layout_width="match_parent"
+        android:layout_height="500dp"
+        android:orientation="vertical"
+        android:background="@drawable/rounded_top_conners"
+        android:paddingVertical="16dp"
+        android:paddingHorizontal="4dp"
+        android:layout_gravity="bottom"
+        android:layout_marginBottom="34dp"
+        android:visibility="gone"
+        android:clickable="true"
+        android:focusable="true">
 
+        <!-- RecyclerView -->
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/recyclerView"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:clipToPadding="false"
+            android:paddingLeft="20dp"
+            android:paddingTop="10dp"
+            android:paddingRight="20dp"
+            android:paddingBottom="16dp" />
+    </LinearLayout>
 
 
     <RelativeLayout
@@ -46,14 +71,14 @@
             android:layout_height="40dp"
             android:layout_centerInParent="true"
             android:hint="@string/title_default"
-        android:textAlignment="center"
-        android:textSize="16sp"
-        android:textColor="#007AFF"
-        android:textStyle="bold"
-        android:gravity="center"
-        android:background="@drawable/textname"
-        android:inputType="text"
-        />
+            android:textAlignment="center"
+            android:textSize="16sp"
+            android:textColor="#007AFF"
+            android:textStyle="bold"
+            android:gravity="center"
+            android:background="@drawable/textname"
+            android:inputType="text"
+            />
 
         <!-- Right Button -->
         <ImageButton
@@ -151,6 +176,7 @@
 
         <!-- Second Button with Icon and Text -->
         <LinearLayout
+            android:id="@+id/getListButton"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
@@ -176,6 +202,7 @@
 
         <!-- Third Button with Icon and Text -->
         <LinearLayout
+            android:id="@+id/cameraBtn"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"

@@ -55,8 +55,8 @@
                         android:layout_marginTop="10dp"
                         />
 
-<!--                        android:background="@drawable/border"-->
-                         <!-- Border 추가 -->
+                    <!--                        android:background="@drawable/border"-->
+                    <!-- Border 추가 -->
 
                     <!-- 선택된 모델 이미지 -->
                     <ImageView
@@ -307,28 +307,26 @@
                             android:gravity="center"
                             android:paddingStart="16dp" />
 
-                        <EditText
-                            android:id="@+id/direction_lat"
+                        <!-- 위도 방향 Spinner -->
+                        <Spinner
+                            android:id="@+id/direction_lat_spinner"
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
                             android:layout_weight="1"
-                            android:inputType="text"
                             android:background="@drawable/border"
                             android:padding="8dp"
                             android:textSize="14sp"
-                            android:hint=""
                             android:gravity="center" />
 
-                        <EditText
-                            android:id="@+id/direction_long"
+                        <!-- 경도 방향 Spinner -->
+                        <Spinner
+                            android:id="@+id/direction_long_spinner"
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
                             android:layout_weight="1"
-                            android:inputType="text"
                             android:background="@drawable/border"
                             android:padding="8dp"
                             android:textSize="14sp"
-                            android:hint=""
                             android:gravity="center" />
                     </LinearLayout>
 
