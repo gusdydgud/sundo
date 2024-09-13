@@ -586,9 +586,6 @@ class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.Con
         }
     }
 
-
-
-
     // 규제구역 로드 함수 수정: 마커 위치를 확인하고 규제구역 내에 있는 마커는 삭제
 
     private fun loadDevelopmentRestrictedAreas() {

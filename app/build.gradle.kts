@@ -50,4 +50,6 @@ dependencies {
     androidTestImplementation(libs.androidx.espresso.core)
 
     implementation("com.google.android.gms:play-services:12.0.1")
+    implementation("com.squareup.retrofit2:retrofit:2.9.0") //레트로핏
+    implementation("com.squareup.retrofit2:converter-gson:2.9.0") //레트로핏 GSON컨버터
 }

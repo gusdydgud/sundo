@@ -8,6 +8,8 @@ import android.os.Build
 import android.os.Bundle
 import android.text.Editable
 import android.text.TextWatcher
+import android.util.Log
+import android.view.Menu
 import android.view.View
 import android.view.ViewGroup
 import android.view.WindowManager
@@ -15,11 +17,16 @@ import android.view.inputmethod.InputMethodManager
 import android.widget.EditText
 import android.widget.ImageButton
 import android.widget.LinearLayout
+import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.example.liststart.databinding.CustomDialogBinding
 import com.example.liststart.databinding.DeleteDialogBinding
+import com.example.liststart.util.Constants
+import retrofit2.Call
+import retrofit2.Callback
+import retrofit2.Response
 
 const val TAG = "myLog"
 
@@ -41,24 +48,57 @@ class MainActivity : AppCompatActivity() {
         // 전역 데이터를 관리하는 MyApplication 객체 가져오기
         val app = application as MyApplication
 
+        var exampleList: ArrayList<Item>? = null
+
+        if(Constants.isNetworkAvailable(this)) {
+            Toast.makeText(this, "인터넷 연결상태 양호", Toast.LENGTH_LONG).show()
+            // 레트로핏 호출
+
+            // ViewModel 또는 DataStore 에서 사용을 권장
+            val turbineApiService = Constants.createRetrofit()
+
+            // 콜백 받음 enqueue() 로
+            turbineApiService.getBusinessAll().enqueue(object : Callback<ArrayList<Item>> {
+                override fun onResponse(call: Call<ArrayList<Item>>, response: Response<ArrayList<Item>>) {
+                    // 성공했을때 처리
+                    if(response.isSuccessful) {
+                        exampleList = response.body()
+                        Log.d("myNewLog", "$exampleList")
+                    } else {
+                        Log.d("myNewLog", "실패")
+                    }
+                }
+
+                override fun onFailure(call: Call<ArrayList<Item>>, t: Throwable) {
+                    // 실패했을때 처리
+                    Log.d("myNewLog", "실패")
+                }
+
+            })
+
+        } else {
+            Toast.makeText(this, "인터넷 연결이 없습니다.", Toast.LENGTH_LONG).show()
+        }
+
         // 예시 데이터
-        val exampleList = arrayListOf(
-            Item("가산 풍력디지털 단지", "2024.09.05", R.drawable.profile, 37.479180, 126.874852),
-            Item("송파구 법조타운", "2024.09.01", R.drawable.profile, 37.483817, 127.112121),
-            Item("영등포 스마트 도시", "2024.08.30", R.drawable.profile, 37.529931, 126.887700),
-            Item("선도 디지털 단지", "2024.08.30", R.drawable.profile, 37.480417, 126.874323),
-            Item("제주 탐라 풍력 단지", "2024.08.30", R.drawable.profile, 33.499911, 126.449403),
-            Item("영흥 풍력 단지", "2024.08.30", R.drawable.profile, 37.239810, 126.446187),
-            Item("가산 풍력디지털 단지", "2024.09.05", R.drawable.profile, 37.479180, 126.874852),
-            Item("송파구 법조타운", "2024.09.01", R.drawable.profile, 37.483817, 127.112121),
-            Item("영등포 스마트 도시", "2024.08.30", R.drawable.profile, 37.529931, 126.887700),
-            Item("선도 디지털 단지", "2024.08.30", R.drawable.profile, 37.480417, 126.874323),
-            Item("제주 탐라 풍력 단지", "2024.08.30", R.drawable.profile, 33.499911, 126.449403),
-            Item("영흥 풍력 단지", "2024.08.30", R.drawable.profile, 37.239810, 126.446187)
-        )
+//        val exampleList = arrayListOf(
+//            Item("가산 풍력디지털 단지", "2024.09.05", R.drawable.profile, 37.479180, 126.874852),
+//            Item("송파구 법조타운", "2024.09.01", R.drawable.profile, 37.483817, 127.112121),
+//            Item("영등포 스마트 도시", "2024.08.30", R.drawable.profile, 37.529931, 126.887700),
+//            Item("선도 디지털 단지", "2024.08.30", R.drawable.profile, 37.480417, 126.874323),
+//            Item("제주 탐라 풍력 단지", "2024.08.30", R.drawable.profile, 33.499911, 126.449403),
+//            Item("영흥 풍력 단지", "2024.08.30", R.drawable.profile, 37.239810, 126.446187),
+//            Item("가산 풍력디지털 단지", "2024.09.05", R.drawable.profile, 37.479180, 126.874852),
+//            Item("송파구 법조타운", "2024.09.01", R.drawable.profile, 37.483817, 127.112121),
+//            Item("영등포 스마트 도시", "2024.08.30", R.drawable.profile, 37.529931, 126.887700),
+//            Item("선도 디지털 단지", "2024.08.30", R.drawable.profile, 37.480417, 126.874323),
+//            Item("제주 탐라 풍력 단지", "2024.08.30", R.drawable.profile, 33.499911, 126.449403),
+//            Item("영흥 풍력 단지", "2024.08.30", R.drawable.profile, 37.239810, 126.446187)
+//        )
 
         // 데이터 저장
-        app.setItemList(exampleList)
+        //app.setItemList(exampleList)
+        //app.setItemList(exampleList!!)
 
         // RecyclerView 설정
         recyclerView = findViewById(R.id.recyclerView)
@@ -203,7 +243,7 @@ class MainActivity : AppCompatActivity() {
                 dialogBinding.addEditText.error = "Title cannot be empty"
             } else {
                 val app = application as MyApplication
-                val newItem = Item(title, "2024.09.05")
+                val newItem = Item(1L, title, "2024.09.05")
                 itemAdapter.addItem(newItem) // 아이템 추가
                 customDialog.dismiss()
             }

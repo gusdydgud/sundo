@@ -5,6 +5,7 @@ import kotlinx.parcelize.Parcelize
 
 @Parcelize
 data class Item(
+    val bno: Long = 0L,
     val title: String,
     val date: String,
     val profileImage: Int = R.drawable.profile,
