@@ -30,11 +30,15 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.ViewModelProvider
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.example.liststart.adapter.BusinessAdapter
+import com.example.liststart.datasource.DataSourceProvider
 import com.example.liststart.model.Business
+import com.example.liststart.util.Constants
 import com.example.liststart.view.TAG
+import com.example.liststart.viewmodel.BusinessViewModel
 import com.google.android.gms.common.ConnectionResult
 import com.google.android.gms.common.api.GoogleApiClient
 import com.google.android.gms.location.LocationServices
@@ -58,33 +62,42 @@ import java.net.URL
 
 class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.ConnectionCallbacks, GoogleApiClient.OnConnectionFailedListener {
 
+    // Google Map 관련 변수
     private var googleMap: GoogleMap? = null
-    private var currentCenter: LatLng? = null
+    private var currentCenter: LatLng? = null // 현재 지도의 중심 좌표
+
+    // UI 요소
     private lateinit var centerMarkerPreview: ImageView // 화면 가운데 미리보기 마커
-    private lateinit var selectLocationTextView: TextView // 위치 선택 텍스트뷰
-    private var isMarkerPreviewVisible = false // 미리보기 마커 상태 추적
-    private lateinit var centerEditText: EditText // 제목 수정용 EditText
+    private lateinit var selectLocationTextView: TextView // 위치 선택 안내 텍스트뷰
+    private lateinit var centerEditText: EditText // 마커 제목 수정용 EditText
     private lateinit var rightButton: ImageButton // 수정 적용 버튼
-    private lateinit var leftButton: ImageButton // GPS 위치로 이동 버튼
-    private var markersList: MutableList<Marker> = mutableListOf() // 추가된 마커들을 관리할 리스트
-    private var markerCounter = 1 //마커 카운트
-    private var titleCounter: String = ""
-    private var title: String = "이름 없음"
-    private var polygonList: MutableList<Polygon> = mutableListOf()
-    private var isRestrictedAreaVisible = false // 규제구역 표시 여부
-    private var lat: Double = 0.0
-    private var long: Double = 0.0
-    private lateinit var apiClient: GoogleApiClient
-    private lateinit var providerClient: com.google.android.gms.location.FusedLocationProviderClient
+    private lateinit var leftButton: ImageButton // GPS 위치 이동 버튼
+    private lateinit var recyclerLayout: LinearLayout // RecyclerView가 포함된 레이아웃
+    private lateinit var getListButton: LinearLayout // 리스트 버튼 (사업 목록 표시 버튼)
+    private lateinit var recyclerView: RecyclerView // 마커 목록 RecyclerView
 
-    private lateinit var recyclerLayout: LinearLayout
-    private lateinit var getListButton: LinearLayout
-    private lateinit var recyclerView: RecyclerView
-    private lateinit var businessAdapter: BusinessAdapter
-    private var isRecyclerViewVisible = false
+    // 상태 관리 변수
+    private var isMarkerPreviewVisible = false // 미리보기 마커의 가시성 상태 추적
+    private var isRestrictedAreaVisible = false // 규제 구역 표시 여부
+    private var isRecyclerViewVisible = false // RecyclerView 가시성 상태
+    private var markerCounter = 1 // 마커의 카운트
+    private var titleCounter: String = "" // 제목 카운트용 문자열
+    private var title: String = "이름 없음" // 마커의 기본 제목
+    private var backPressedTime: Long = 0 // 뒤로가기 버튼을 마지막으로 누른 시간
 
-    private var backPressedTime: Long = 0 // 마지막으로 뒤로가기를 누른 시간을 저장하는 변수
+    // 지도 상의 마커와 폴리곤 관리
+    private var markersList: MutableList<Marker> = mutableListOf() // 지도에 추가된 마커 리스트
+    private var polygonList: MutableList<Polygon> = mutableListOf() // 지도에 추가된 폴리곤 리스트
 
+    // 위치 관련 변수
+    private var lat: Double = 0.0 // 현재 GPS로 얻은 위도
+    private var long: Double = 0.0 // 현재 GPS로 얻은 경도
+    private lateinit var apiClient: GoogleApiClient // Google API 클라이언트
+    private lateinit var providerClient: com.google.android.gms.location.FusedLocationProviderClient // 위치 제공 클라이언트
+
+    // ViewModel 및 Adapter 관련 변수
+    private lateinit var businessAdapter: BusinessAdapter // 비즈니스 데이터용 RecyclerView 어댑터
+    private lateinit var businessViewModel: BusinessViewModel // 비즈니스 ViewModel
 
     // 규제구역 내에 있는지 확인하는 함수
     private fun isLocationInRestrictedArea(lat: Double, long: Double): Boolean {
@@ -130,8 +143,6 @@ class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.Con
         return false
     }
 
-
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_gis)
@@ -156,8 +167,9 @@ class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.Con
         title = intent?.getStringExtra("title") ?: "이름 없음"
 
         // 수민
-        // 전역 데이터를 관리하는 MyApplication 객체 가져오기
-        val app = application as MyApplication
+        // DataSourceProvider에서 싱글톤 인스턴스를 가져옴
+        val viewModelFactory = DataSourceProvider.businessViewModelFactory
+        businessViewModel = ViewModelProvider(this, viewModelFactory).get(BusinessViewModel::class.java)
 
         // RecyclerView 설정
         recyclerLayout = findViewById(R.id.recyclerLayout)
@@ -165,12 +177,28 @@ class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.Con
 
         recyclerView.layoutManager = LinearLayoutManager(this)
 
-        // itemAdapter 설정 (데이터는 전역 MyApplication에서 가져올 수 있음)
+        // 어댑터 초기화
         businessAdapter = BusinessAdapter(isVisible = false) { item -> handleClick(item) }
         recyclerView.adapter = businessAdapter
 
-        // 전역 데이터 설정
-        businessAdapter.setFilteredList(app.getItemList())
+        // ViewModel의 데이터를 관찰하여 RecyclerView 업데이트
+        businessViewModel.businessList.observe(this) { businessList ->
+            businessAdapter.updateList(businessList)
+        }
+
+        // ViewModel의 에러 메시지를 관찰하여 토스트로 표시
+        businessViewModel.error.observe(this) { message ->
+            Toast.makeText(this, message, Toast.LENGTH_SHORT).show()
+        }
+
+        // 네트워크 상태 확인 후 데이터 로딩
+        if (Constants.isNetworkAvailable(this)) {
+            // 네트워크가 있을 때 데이터 로딩
+            businessViewModel.loadBusinessList()
+        } else {
+            // 네트워크가 없을 때 사용자에게 알림
+            Toast.makeText(this, "네트워크 연결이 필요합니다.", Toast.LENGTH_SHORT).show()
+        }
         // 수민
 
 

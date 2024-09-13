@@ -28,6 +28,7 @@ import com.example.liststart.adapter.BusinessAdapter
 import com.example.liststart.databinding.CustomDialogBinding
 import com.example.liststart.databinding.DeleteDialogBinding
 import com.example.liststart.datasource.BusinessDataSourceImpl
+import com.example.liststart.datasource.DataSourceProvider
 import com.example.liststart.model.Business
 import com.example.liststart.util.Constants
 import com.example.liststart.viewmodel.BusinessViewModel
@@ -64,11 +65,8 @@ class MainActivity : AppCompatActivity() {
         })
         //현용 뒤로가기2번눌러서 앱종료
 
-        // BusinessDataSource 인스턴스를 생성
-        val dataSource = BusinessDataSourceImpl(Constants.turbineApiService)
-        val viewModelFactory = BusinessViewModelFactory(dataSource)
-
-        // ViewModel을 Factory를 통해 생성
+        // DataSourceProvider에서 싱글톤 인스턴스를 가져옴
+        val viewModelFactory = DataSourceProvider.businessViewModelFactory
         businessViewModel = ViewModelProvider(this, viewModelFactory).get(BusinessViewModel::class.java)
 
         val rootLayout = findViewById<LinearLayout>(R.id.rootLayout)
