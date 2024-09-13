@@ -11,53 +11,51 @@ import com.google.gson.GsonBuilder
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 
-object Constants { // 싱글톤
+object Constants {
 
-    private const val BASE_URL = "https://localhost:8585/turbine/api/"
+    private const val BASE_URL = "http://10.0.2.2:8585/turbine/api/"
 
-    // 데이터 주고받을때 언더바를 카멜표기법으로 바꿔주는 작업
-    val gson = GsonBuilder().setFieldNamingPolicy(FieldNamingPolicy.LOWER_CASE_WITH_UNDERSCORES).create()
-    // Retrofit 연결
-    fun createRetrofit(): TurbineAPIService {
+    // GSON 인스턴스
+    private val gson = GsonBuilder()
+        .setFieldNamingPolicy(FieldNamingPolicy.LOWER_CASE_WITH_UNDERSCORES)
+        .create()
 
-        // Retrofit 연결 객체
-        val retrofit: Retrofit = Retrofit.Builder()
+    // Retrofit 인스턴스를 싱글톤으로 관리
+    private val retrofit: Retrofit by lazy {
+        Retrofit.Builder()
             .baseUrl(BASE_URL)
-            .addConverterFactory(GsonConverterFactory.create(gson)) // GSON 으로 컨버팅
+            .addConverterFactory(GsonConverterFactory.create(gson))
             .build()
-
-        // 사용할 인터페이스
-        val turbineApiService = retrofit.create(TurbineAPIService::class.java)
-        return turbineApiService
     }
 
-    // 인터넷 연결상태 확인
-    fun isNetworkAvailable(context: Context): Boolean {
+    // TurbineAPIService 인스턴스를 생성
+    val turbineApiService: TurbineAPIService by lazy {
+        retrofit.create(TurbineAPIService::class.java)
+    }
 
+    // Retrofit 객체를 동적으로 가져오고 싶은 경우
+    fun createRetrofit(baseUrl: String = BASE_URL): TurbineAPIService {
+        return Retrofit.Builder()
+            .baseUrl(baseUrl)
+            .addConverterFactory(GsonConverterFactory.create(gson))
+            .build()
+            .create(TurbineAPIService::class.java)
+    }
+
+    // 인터넷 연결 상태 확인
+    fun isNetworkAvailable(context: Context): Boolean {
         val connectivityManager =
             context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
 
-        // API 버전에 따라 다른 코드 작성
-        if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-
-            // 사용가능한 네트워크가 없다면 false
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             val network = connectivityManager.activeNetwork ?: return false
-            // 사용가능한 인터넷, 와이파이 연결 여부 확인 없다면 false
             val activeNetwork = connectivityManager.getNetworkCapabilities(network) ?: return false
-
-            return when {
-                activeNetwork.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) -> return true
-                activeNetwork.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) -> return true
-                activeNetwork.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET) -> return true
-                else -> false
-            }
-
+            activeNetwork.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) ||
+                    activeNetwork.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) ||
+                    activeNetwork.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET)
         } else {
             val networkInfo = connectivityManager.activeNetworkInfo
-            return networkInfo != null && networkInfo.isConnectedOrConnecting
+            networkInfo != null && networkInfo.isConnectedOrConnecting
         }
-
-
     }
-
 }

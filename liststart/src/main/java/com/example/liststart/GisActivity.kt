@@ -1,7 +1,6 @@
 package com.example.liststart
 
 import android.content.Context
-import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Color
 import android.location.Location
@@ -13,7 +12,6 @@ import android.view.LayoutInflater
 import android.view.MotionEvent
 
 import android.view.View
-import android.view.ViewGroup
 import android.view.animation.Animation
 import android.view.animation.AnimationUtils
 import android.view.inputmethod.InputMethodManager
@@ -27,12 +25,16 @@ import android.widget.Spinner
 import android.widget.TabHost
 import android.widget.TextView
 import android.widget.Toast
+import androidx.activity.OnBackPressedCallback
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import com.example.liststart.adapter.BusinessAdapter
+import com.example.liststart.model.Business
+import com.example.liststart.view.TAG
 import com.google.android.gms.common.ConnectionResult
 import com.google.android.gms.common.api.GoogleApiClient
 import com.google.android.gms.location.LocationServices
@@ -74,13 +76,14 @@ class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.Con
     private var long: Double = 0.0
     private lateinit var apiClient: GoogleApiClient
     private lateinit var providerClient: com.google.android.gms.location.FusedLocationProviderClient
-    // 수민
+
     private lateinit var recyclerLayout: LinearLayout
     private lateinit var getListButton: LinearLayout
     private lateinit var recyclerView: RecyclerView
-    private lateinit var itemAdapter: ItemAdapter
+    private lateinit var businessAdapter: BusinessAdapter
     private var isRecyclerViewVisible = false
-    // 수민
+
+    private var backPressedTime: Long = 0 // 마지막으로 뒤로가기를 누른 시간을 저장하는 변수
 
 
     // 규제구역 내에 있는지 확인하는 함수
@@ -133,6 +136,22 @@ class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.Con
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_gis)
 
+        //현용 뒤로가기2번눌러서 앱종료
+        // onBackPressedDispatcher를 통한 뒤로가기 콜백 등록
+        onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() {
+                // 두 번 눌러야 앱이 종료되도록 처리
+                if (System.currentTimeMillis() > backPressedTime + 2000) {
+                    backPressedTime = System.currentTimeMillis()
+                    Toast.makeText(this@GisActivity, "뒤로가기를 한 번 더 누르면 앱이 종료됩니다", Toast.LENGTH_SHORT).show()
+                } else {
+                    finishAffinity() // 현재 액티비티를 포함한 모든 액티비티 종료
+                    System.exit(0) // 앱 프로세스 종료
+                }
+            }
+        })
+        //현용 뒤로가기2번눌러서 앱종료
+
         // 인텐트로 전달된 제목 데이터 받기
         title = intent?.getStringExtra("title") ?: "이름 없음"
 
@@ -147,11 +166,11 @@ class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.Con
         recyclerView.layoutManager = LinearLayoutManager(this)
 
         // itemAdapter 설정 (데이터는 전역 MyApplication에서 가져올 수 있음)
-        itemAdapter = ItemAdapter(isVisible = false) { item -> handleClick(item) }
-        recyclerView.adapter = itemAdapter
+        businessAdapter = BusinessAdapter(isVisible = false) { item -> handleClick(item) }
+        recyclerView.adapter = businessAdapter
 
         // 전역 데이터 설정
-        itemAdapter.setFilteredList(app.getItemList())
+        businessAdapter.setFilteredList(app.getItemList())
         // 수민
 
 
@@ -272,7 +291,7 @@ class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.Con
                 recyclerLayout.startAnimation(slideUpAnimation)
                 isRecyclerViewVisible = true
                 recyclerView.isEnabled = true // 클릭 가능
-                itemAdapter.updateVisibility(true) // 어댑터에서 아이템 클릭 활성화
+                businessAdapter.updateVisibility(true) // 어댑터에서 아이템 클릭 활성화
             } else {
                 // 슬라이드 다운 애니메이션 실행 후 클릭 불가
                 recyclerLayout.startAnimation(slideDownAnimation)
@@ -282,7 +301,7 @@ class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.Con
                     override fun onAnimationEnd(animation: Animation) {
                         recyclerLayout.visibility = View.GONE
                         recyclerView.isEnabled = false // 클릭 불가
-                        itemAdapter.updateVisibility(false) // 어댑터에서 아이템 클릭 비활성화
+                        businessAdapter.updateVisibility(false) // 어댑터에서 아이템 클릭 비활성화
                     }
 
                     override fun onAnimationRepeat(animation: Animation) {}
@@ -717,15 +736,15 @@ class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.Con
     }
     // 수민
     // 목록 클릭 이벤트
-    private fun handleClick(data: Item) {
+    private fun handleClick(data: Business) {
         Log.d(TAG, "Clicked item: ${data.title}")
 
         // 선택한 사업지의 좌표로 이동
-        val latLng = LatLng(data.lat, data.long)
+        val latLng = LatLng(91.0, 181.0)
         googleMap?.moveCamera(CameraUpdateFactory.newLatLngZoom(latLng, 15f))
 
         // 선택한 위치에 마커 추가
-        addMarkerAtLocation(data.lat, data.long, data.title)
+        //addMarkerAtLocation(data.lat, data.long, data.title)
     }
     // 수민
 
