@@ -9,8 +9,9 @@ data class Marker(
     val regdate: String,
     var update: String,
     var degree: Long,
-    var latitude: Double = 91.0,
-    var longitude: Double = 181.0,
+    var latitude: Double,
+    var longitude: Double,
     val bno: Long,
-    var model: String
+    var model: String,
+    var title: String?
 ) : Parcelable

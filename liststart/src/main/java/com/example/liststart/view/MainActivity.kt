@@ -170,11 +170,7 @@ class MainActivity : AppCompatActivity() {
     private fun handleClick(data: Business) {
         // GIS 화면으로 이동
         val intent = Intent(this, GisActivity::class.java)
-        val bundle = Bundle()
-        bundle.putString("title", data.title)
-        //bundle.putDouble("lat", data.lat)
-        //bundle.putDouble("long", data.long)
-        intent.putExtras(bundle)
+        intent.putExtra("data", data)
         startActivity(intent)
     }
 

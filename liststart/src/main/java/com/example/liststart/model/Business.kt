@@ -13,6 +13,6 @@ data class Business(
     @Expose(serialize = false)
     var update: String? = null,
     var title: String,
-    var userName: String = "이름없음",
+    var userName: String? = "이름없음",
     var isChecked: Boolean = false
 ) : Parcelable

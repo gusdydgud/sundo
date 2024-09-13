@@ -31,7 +31,6 @@ class BusinessViewModel(private val businessDataSource: BusinessDataSource) : Vi
                 if (response.isSuccessful) {
                     businessItems = response.body()!!.toMutableList()
                     _businessList.value = businessItems
-                    Log.d(TAG, "loadBusinessList: $businessItems")
                 } else {
                     _error.value = "데이터를 가져오는 데 실패했습니다: ${response.message()}"
                 }

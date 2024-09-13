@@ -5,6 +5,7 @@ import android.content.pm.PackageManager
 import android.graphics.Color
 import android.location.Location
 import android.os.AsyncTask
+import android.os.Build
 import android.os.Bundle
 import android.util.Log
 
@@ -35,10 +36,12 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.example.liststart.adapter.BusinessAdapter
 import com.example.liststart.datasource.DataSourceProvider
+import com.example.liststart.datasource.DataSourceProvider.businessViewModelFactory
 import com.example.liststart.model.Business
 import com.example.liststart.util.Constants
 import com.example.liststart.view.TAG
 import com.example.liststart.viewmodel.BusinessViewModel
+import com.example.liststart.viewmodel.MarkerViewModel
 import com.google.android.gms.common.ConnectionResult
 import com.google.android.gms.common.api.GoogleApiClient
 import com.google.android.gms.location.LocationServices
@@ -69,12 +72,12 @@ class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.Con
     // UI 요소
     private lateinit var centerMarkerPreview: ImageView // 화면 가운데 미리보기 마커
     private lateinit var selectLocationTextView: TextView // 위치 선택 안내 텍스트뷰
-    private lateinit var centerEditText: EditText // 마커 제목 수정용 EditText
+    private lateinit var centerEditText: EditText // 사업 제목 수정용 EditText
     private lateinit var rightButton: ImageButton // 수정 적용 버튼
     private lateinit var leftButton: ImageButton // GPS 위치 이동 버튼
     private lateinit var recyclerLayout: LinearLayout // RecyclerView가 포함된 레이아웃
     private lateinit var getListButton: LinearLayout // 리스트 버튼 (사업 목록 표시 버튼)
-    private lateinit var recyclerView: RecyclerView // 마커 목록 RecyclerView
+    private lateinit var recyclerView: RecyclerView // 사업 목록 RecyclerView
 
     // 상태 관리 변수
     private var isMarkerPreviewVisible = false // 미리보기 마커의 가시성 상태 추적
@@ -82,7 +85,8 @@ class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.Con
     private var isRecyclerViewVisible = false // RecyclerView 가시성 상태
     private var markerCounter = 1 // 마커의 카운트
     private var titleCounter: String = "" // 제목 카운트용 문자열
-    private var title: String = "이름 없음" // 마커의 기본 제목
+    private var data: Business? = null// 선택된 사업
+    private var title: String? = null// 선택된 사업
     private var backPressedTime: Long = 0 // 뒤로가기 버튼을 마지막으로 누른 시간
 
     // 지도 상의 마커와 폴리곤 관리
@@ -98,6 +102,7 @@ class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.Con
     // ViewModel 및 Adapter 관련 변수
     private lateinit var businessAdapter: BusinessAdapter // 비즈니스 데이터용 RecyclerView 어댑터
     private lateinit var businessViewModel: BusinessViewModel // 비즈니스 ViewModel
+    private lateinit var markerViewModel: MarkerViewModel // 마커 ViewModel
 
     // 규제구역 내에 있는지 확인하는 함수
     private fun isLocationInRestrictedArea(lat: Double, long: Double): Boolean {
@@ -164,12 +169,23 @@ class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.Con
         //현용 뒤로가기2번눌러서 앱종료
 
         // 인텐트로 전달된 제목 데이터 받기
-        title = intent?.getStringExtra("title") ?: "이름 없음"
+        data = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            // Android 13 (Tiramisu) 이상
+            intent?.getParcelableExtra("data", Business::class.java)
+        } else {
+            // Android 13 미만
+            @Suppress("DEPRECATION")
+            intent?.getParcelableExtra<Business>("data")
+        }
+
+        title = data?.title ?: "이름없음"
 
         // 수민
         // DataSourceProvider에서 싱글톤 인스턴스를 가져옴
-        val viewModelFactory = DataSourceProvider.businessViewModelFactory
-        businessViewModel = ViewModelProvider(this, viewModelFactory).get(BusinessViewModel::class.java)
+        val businessViewModelFactory = DataSourceProvider.businessViewModelFactory
+        businessViewModel = ViewModelProvider(this, businessViewModelFactory).get(BusinessViewModel::class.java)
+        val markerViewModelFactory = DataSourceProvider.markerViewModelFactory
+        markerViewModel = ViewModelProvider(this, markerViewModelFactory).get(MarkerViewModel::class.java)
 
         // RecyclerView 설정
         recyclerLayout = findViewById(R.id.recyclerLayout)
@@ -181,26 +197,52 @@ class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.Con
         businessAdapter = BusinessAdapter(isVisible = false) { item -> handleClick(item) }
         recyclerView.adapter = businessAdapter
 
-        // ViewModel의 데이터를 관찰하여 RecyclerView 업데이트
+        // BusinessViewModel의 데이터를 관찰하여 RecyclerView 업데이트
         businessViewModel.businessList.observe(this) { businessList ->
             businessAdapter.updateList(businessList)
+        }
+
+        // MarkerViewModel의 데이터를 관찰하여 마커 리스트 업데이트 및 첫 번째 마커로 지도 이동
+        markerViewModel.markerList.observe(this) { markerList ->
+            if (markerList.isNotEmpty()) {
+                val firstMarker = markerList.first()
+
+                // 첫 번째 마커의 좌표로 지도 중심을 이동
+                val firstLatLng = LatLng(firstMarker.latitude, firstMarker.longitude)
+                googleMap?.moveCamera(CameraUpdateFactory.newLatLngZoom(firstLatLng, 15f))
+
+                // 마커를 지도에 표시
+                for (markerData in markerList) {
+                    val markerOptions = MarkerOptions()
+                        .position(LatLng(markerData.latitude, markerData.longitude)) // 마커 좌표
+                        .title(markerData.title)  // 마커 제목 설정
+                    googleMap?.addMarker(markerOptions)
+                }
+            }
         }
 
         // ViewModel의 에러 메시지를 관찰하여 토스트로 표시
         businessViewModel.error.observe(this) { message ->
             Toast.makeText(this, message, Toast.LENGTH_SHORT).show()
         }
+        markerViewModel.error.observe(this) { message ->
+            Toast.makeText(this, message, Toast.LENGTH_SHORT).show()
+        }
 
         // 네트워크 상태 확인 후 데이터 로딩
         if (Constants.isNetworkAvailable(this)) {
-            // 네트워크가 있을 때 데이터 로딩
             businessViewModel.loadBusinessList()
+
+            // bno가 null이 아닌 경우에만 마커 로딩
+            data?.bno?.let { bno ->
+                markerViewModel.loadMarkerList(bno)
+            } ?: run {
+                Toast.makeText(this, "사업 정보가 없습니다.", Toast.LENGTH_SHORT).show()
+            }
         } else {
-            // 네트워크가 없을 때 사용자에게 알림
             Toast.makeText(this, "네트워크 연결이 필요합니다.", Toast.LENGTH_SHORT).show()
         }
         // 수민
-
 
         // UI 요소 초기화
         centerEditText = findViewById(R.id.centerEditText)
@@ -215,13 +257,6 @@ class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.Con
             } else {
                 Toast.makeText(this, "권한 거부", Toast.LENGTH_SHORT).show()
             }
-        }
-
-        // Intent로 전달된 사업 좌표를 받습니다.
-        val bundle = intent.extras
-        if (bundle != null) {
-            lat = bundle.getDouble("lat", 0.0) // 위도값 받기, 기본값 0.0
-            long = bundle.getDouble("long", 0.0) // 경도값 받기, 기본값 0.0
         }
 
         // 지도 프래그먼트 초기화
@@ -446,8 +481,14 @@ class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.Con
         val lat = intent.getDoubleExtra("lat", 0.0)
         val long = intent.getDoubleExtra("long", 0.0)
 
+        // 마커 리스트가 존재하지 않을 때만 현재 위치로 이동
         if (lat == 0.0 && long == 0.0 || (lat == 91.0 || long == 181.0)) {
-            moveToCurrentLocation()
+            // 마커가 없을 경우에만 현재 위치로 이동
+            markerViewModel.markerList.observe(this) { markerList ->
+                if (markerList.isEmpty()) {
+                    moveToCurrentLocation()
+                }
+            }
         } else {
             moveMap(lat, long)
         }
