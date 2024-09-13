@@ -59,12 +59,12 @@ class BusinessViewModel(private val businessDataSource: BusinessDataSource) : Vi
     }
 
     // 선택된 비즈니스를 삭제하는 함수
-    fun deleteSelectedBusinesses(selectedBusinessIds: List<Long>) {
+    fun deleteSelectedBusinesses(ids: List<Long>) {
         viewModelScope.launch {
             try {
-                val response = businessDataSource.deleteBusinesses(selectedBusinessIds)
+                val response = businessDataSource.deleteBusinesses(ids)
                 if (response.isSuccessful) {
-                    businessItems.removeAll { it.bno in selectedBusinessIds }
+                    businessItems.removeAll { it.bno in ids }
                     _businessList.value = businessItems // 업데이트된 리스트 반영
                 } else {
                     _error.value = "비즈니스를 삭제하는 데 실패했습니다: ${response.message()}"

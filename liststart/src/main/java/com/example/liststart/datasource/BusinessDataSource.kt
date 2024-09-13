@@ -6,5 +6,5 @@ import retrofit2.Response
 interface BusinessDataSource {
     suspend fun getBusinessList(): Response<List<Business>>
     suspend fun addBusiness(business: Business): Response<Business>
-    suspend fun deleteBusinesses(businessIds: List<Long>): Response<Unit>
+    suspend fun deleteBusinesses(ids: List<Long>): Response<Unit>
 }
