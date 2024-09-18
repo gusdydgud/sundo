@@ -1,6 +1,9 @@
 package com.example.liststart
 
+import android.animation.Animator
+import android.animation.ObjectAnimator
 import android.content.Context
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Color
 import android.location.Location
@@ -13,6 +16,7 @@ import android.view.LayoutInflater
 import android.view.MotionEvent
 
 import android.view.View
+import android.view.ViewGroup
 import android.view.animation.Animation
 import android.view.animation.AnimationUtils
 import android.view.inputmethod.InputMethodManager
@@ -36,7 +40,6 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.example.liststart.adapter.BusinessAdapter
 import com.example.liststart.datasource.DataSourceProvider
-import com.example.liststart.datasource.DataSourceProvider.businessViewModelFactory
 import com.example.liststart.model.Business
 import com.example.liststart.util.Constants
 import com.example.liststart.view.TAG
@@ -193,6 +196,11 @@ class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.Con
 
         recyclerView.layoutManager = LinearLayoutManager(this)
 
+        // RecyclerView 높이를 미리 화면 아래로 이동시킵니다.
+        recyclerLayout.post {
+            recyclerLayout.translationY = recyclerLayout.height.toFloat()
+        }
+
         // 어댑터 초기화
         businessAdapter = BusinessAdapter(isVisible = false) { item -> handleClick(item) }
         recyclerView.adapter = businessAdapter
@@ -298,10 +306,38 @@ class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.Con
         // 좌표 선택 버튼 클릭 이벤트 설정
         val selctlotiLayout = findViewById<LinearLayout>(R.id.selctloti)
         selctlotiLayout.setOnClickListener {
-            isMarkerPreviewVisible = !isMarkerPreviewVisible
-            centerMarkerPreview.visibility = if (isMarkerPreviewVisible) View.VISIBLE else View.GONE
-            selectLocationTextView.visibility = if (isMarkerPreviewVisible) View.VISIBLE else View.GONE
+            if (isRecyclerViewVisible) {
+                // 애니메이션을 통해 사업지 목록을 먼저 내립니다.
+                animateRecyclerView(false) // 사업지 목록 내리기
+
+                // 애니메이션이 끝난 후에 좌표 선택 동작을 실행합니다.
+                val listener = object : Animator.AnimatorListener {
+                    override fun onAnimationStart(animation: Animator) {}
+                    override fun onAnimationEnd(animation: Animator) {
+                        // 좌표 선택 동작 실행
+                        isMarkerPreviewVisible = !isMarkerPreviewVisible
+                        centerMarkerPreview.visibility = if (isMarkerPreviewVisible) View.VISIBLE else View.GONE
+                        selectLocationTextView.visibility = if (isMarkerPreviewVisible) View.VISIBLE else View.GONE
+                    }
+
+                    override fun onAnimationCancel(animation: Animator) {}
+                    override fun onAnimationRepeat(animation: Animator) {}
+                }
+
+                // 애니메이션에 리스너를 추가하여 끝난 후에 실행될 동작을 정의합니다.
+                ObjectAnimator.ofFloat(recyclerLayout, "translationY", recyclerLayout.height.toFloat()).apply {
+                    duration = 500 // 애니메이션 지속 시간 (ms)
+                    addListener(listener)
+                }.start()
+
+            } else {
+                // 사업지 목록이 보이지 않을 때는 바로 좌표 선택 동작을 실행합니다.
+                isMarkerPreviewVisible = !isMarkerPreviewVisible
+                centerMarkerPreview.visibility = if (isMarkerPreviewVisible) View.VISIBLE else View.GONE
+                selectLocationTextView.visibility = if (isMarkerPreviewVisible) View.VISIBLE else View.GONE
+            }
         }
+
 
         // '지정하기' 버튼 클릭 이벤트 설정
         val selectLocationButton = findViewById<TextView>(R.id.selectLocationTextView)
@@ -340,36 +376,17 @@ class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.Con
         leftButton.setOnClickListener {
             moveToCurrentLocation()
         }
-        // 수민
-        // 애니메이션 불러오기
-        val slideUpAnimation = AnimationUtils.loadAnimation(this, R.anim.slide_up)
-        val slideDownAnimation = AnimationUtils.loadAnimation(this, R.anim.slide_down)
 
+        // 수민
         // 사업지 목록 버튼 이벤트
         getListButton = findViewById(R.id.getListButton)
         getListButton.setOnClickListener {
             if (!isRecyclerViewVisible) {
-                // 슬라이드 업 애니메이션 실행 후 클릭 가능
-                recyclerLayout.visibility = View.VISIBLE
-                recyclerLayout.startAnimation(slideUpAnimation)
-                isRecyclerViewVisible = true
-                recyclerView.isEnabled = true // 클릭 가능
-                businessAdapter.updateVisibility(true) // 어댑터에서 아이템 클릭 활성화
+                // 슬라이드 업 애니메이션 실행
+                animateRecyclerView(true)
             } else {
-                // 슬라이드 다운 애니메이션 실행 후 클릭 불가
-                recyclerLayout.startAnimation(slideDownAnimation)
-                slideDownAnimation.setAnimationListener(object : Animation.AnimationListener {
-                    override fun onAnimationStart(animation: Animation) {}
-
-                    override fun onAnimationEnd(animation: Animation) {
-                        recyclerLayout.visibility = View.GONE
-                        recyclerView.isEnabled = false // 클릭 불가
-                        businessAdapter.updateVisibility(false) // 어댑터에서 아이템 클릭 비활성화
-                    }
-
-                    override fun onAnimationRepeat(animation: Animation) {}
-                })
-                isRecyclerViewVisible = false
+                // 슬라이드 다운 애니메이션 실행
+                animateRecyclerView(false)
             }
         }
         // 수민
@@ -803,7 +820,56 @@ class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.Con
         val seconds = (((decimal - degrees) * 60) - minutes) * 60
         return Triple(degrees.toDouble(), minutes.toDouble(), seconds)
     }
+
     // 수민
+    // 애니메이션 설정 함수
+    private fun animateRecyclerView(show: Boolean) {
+        // 목표 translationY 값 설정
+        val targetY = if (show) 0f else recyclerLayout.height.toFloat()
+
+        // ObjectAnimator를 사용하여 recyclerLayout의 translationY를 애니메이션
+        val animator = ObjectAnimator.ofFloat(recyclerLayout, "translationY", targetY)
+        animator.duration = 500 // 애니메이션 지속 시간 (ms)
+
+        // 애니메이션 시작 전과 끝 후에 터치 이벤트를 처리
+        animator.addListener(object : Animator.AnimatorListener {
+            override fun onAnimationStart(animation: Animator) {
+                if (show) {
+                    // 리사이클러뷰를 보여줄 때, 터치 이벤트를 차단하고 레이아웃을 표시
+                    recyclerLayout.setOnTouchListener { _, _ -> true }
+                    recyclerLayout.visibility = View.VISIBLE
+                    recyclerView.isEnabled = true
+                    businessAdapter.updateVisibility(true)
+                    // 지도 터치 비활성화
+                    googleMap?.uiSettings?.isScrollGesturesEnabled = false
+                    googleMap?.uiSettings?.isZoomGesturesEnabled = false
+                } else {
+                    // 숨길 때 터치 이벤트를 차단합니다.
+                    recyclerLayout.setOnTouchListener { _, _ -> true }
+                }
+            }
+
+            override fun onAnimationEnd(animation: Animator) {
+                if (!show) {
+                    // 애니메이션이 끝난 후, 레이아웃을 완전히 숨기고 터치 이벤트를 해제
+                    recyclerLayout.visibility = View.GONE
+                    recyclerView.isEnabled = false
+                    businessAdapter.updateVisibility(false)
+                    recyclerLayout.setOnTouchListener(null)
+                    // 지도 터치 활성화
+                    googleMap?.uiSettings?.isScrollGesturesEnabled = true
+                    googleMap?.uiSettings?.isZoomGesturesEnabled = true
+                }
+                // 리사이클러뷰 가시성 상태 업데이트
+                isRecyclerViewVisible = show
+            }
+
+            override fun onAnimationCancel(animation: Animator) {}
+            override fun onAnimationRepeat(animation: Animator) {}
+        })
+
+        animator.start() // 애니메이션 시작
+    }
     // 목록 클릭 이벤트
     private fun handleClick(data: Business) {
         Log.d(TAG, "Clicked item: ${data.title}")
