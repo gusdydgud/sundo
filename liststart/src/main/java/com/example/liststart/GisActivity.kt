@@ -139,6 +139,7 @@ class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.Con
         currentMarkerColorIndex = (currentMarkerColorIndex + 1) % colorList.size
         return color
     }
+
 // 수민
 
     // 규제구역 내에 있는지 확인하는 함수
@@ -190,35 +191,29 @@ class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.Con
         setContentView(R.layout.activity_gis)
 
         //현용 뒤로가기2번눌러서 앱종료
-        // onBackPressedDispatcher를 통한 뒤로가기 콜백 등록
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
-                // 두 번 눌러야 앱이 종료되도록 처리
                 if (System.currentTimeMillis() > backPressedTime + 2000) {
                     backPressedTime = System.currentTimeMillis()
                     Toast.makeText(this@GisActivity, "뒤로가기를 한 번 더 누르면 앱이 종료됩니다", Toast.LENGTH_SHORT).show()
                 } else {
-                    finishAffinity() // 현재 액티비티를 포함한 모든 액티비티 종료
-                    System.exit(0) // 앱 프로세스 종료
+                    finishAffinity()
+                    System.exit(0)
                 }
             }
         })
-        //현용 뒤로가기2번눌러서 앱종료
 
-    // 수민
         // 인텐트로 전달된 제목 데이터 받기
         data = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            // Android 13 (Tiramisu) 이상
             intent?.getParcelableExtra("data", Business::class.java)
         } else {
-            // Android 13 미만
             @Suppress("DEPRECATION")
             intent?.getParcelableExtra<Business>("data")
         }
 
         title = data?.title ?: "이름없음"
 
-        // DataSourceProvider에서 싱글톤 인스턴스를 가져옴
+        // ViewModel 설정
         val businessViewModelFactory = DataSourceProvider.businessViewModelFactory
         businessViewModel = ViewModelProvider(this, businessViewModelFactory).get(BusinessViewModel::class.java)
         val markerViewModelFactory = DataSourceProvider.markerViewModelFactory
@@ -227,41 +222,11 @@ class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.Con
         // RecyclerView 설정
         recyclerLayout = findViewById(R.id.recyclerLayout)
         recyclerView = findViewById(R.id.recyclerView)
-
         recyclerView.layoutManager = LinearLayoutManager(this)
 
-        // RecyclerView 높이를 미리 화면 아래로 이동시킵니다.
+        // RecyclerView 높이를 미리 화면 아래로 이동
         recyclerLayout.post {
             recyclerLayout.translationY = recyclerLayout.height.toFloat()
-        }
-
-        // 마커를 처음 로드할 때만 이동하도록 설정
-        markerViewModel.markerList.observe(this) { markerList ->
-            if (markerList.isNotEmpty()) {
-
-                // 첫 번째 마커의 좌표로 지도 중심을 이동
-                val firstMarker = markerList.first()
-                val firstLatLng = LatLng(firstMarker.latitude, firstMarker.longitude)
-                googleMap?.moveCamera(CameraUpdateFactory.newLatLngZoom(firstLatLng, 15f))
-
-                // 마커를 지도에 표시하고 각 마커에 mno 값을 tag로 설정
-                for (markerData in markerList) {
-                    val markerOptions = MarkerOptions()
-                        .position(LatLng(markerData.latitude, markerData.longitude)) // 마커 좌표
-                        .title(markerData.title)  // 마커 제목 설정
-
-                    val marker = googleMap?.addMarker(markerOptions)
-                    marker?.tag = markerData.mno // 서버에서 불러온 마커의 mno 값을 tag로 설정
-                }
-
-                // 첫 번째 마커로 이동한 후에는 다시 실행되지 않도록 설정
-                isInitialMarkerLoaded = true
-            }
-        }
-
-        // 마커 리스트 로드
-        data?.bno?.let { bno ->
-            markerViewModel.loadMarkerList(bno)
         }
 
         // 어댑터 초기화
@@ -270,41 +235,58 @@ class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.Con
             onItemClick = { item -> handleClick(item) },
             onCheckBoxClick = { item ->
                 item.bno?.let { bno ->
-                    markerViewModel.loadMarkerList(bno)
-
-                    // 기존 마커 이동 로직 제거
-                    markerViewModel.markerList.observe(this) { markerList ->
-                        if (markerList.isNotEmpty()) {
-                            // 체크박스가 체크되었을 때
-                            if (item.isChecked) {
-                                markerList.forEach { markerData ->
-                                    // 사업 번호에 해당하는 고유 색상을 가져오거나 새로 추가
-                                    val markerColor = businessColorMap.getOrPut(bno) { getNextMarkerColor() }
-                                    val marker = addMarkerAtLocation(
-                                        markerData.latitude,
-                                        markerData.longitude,
-                                        markerData.title ?: "마커",
-                                        markerColor
-                                    )
-
-                                    // 마커를 business ID로 매핑
-                                    markerMap.getOrPut(bno) { mutableListOf() }.add(marker)
-                                }
-                            } else {
-                                // 체크박스가 해제되었을 때 마커 제거
-                                markerMap[bno]?.forEach { marker ->
-                                    marker.remove()
-                                }
-                                // 제거 후 해당 사업의 마커 리스트도 초기화
-                                markerMap[bno]?.clear()
-                            }
-                        }
+                    if (item.isChecked) {
+                        // 체크박스가 체크되었을 때 마커 추가
+                        markerViewModel.loadMarkerList(bno)
+                    } else {
+                        // 체크박스가 해제되었을 때 마커 제거
+                        removeMarkersForBusiness(bno)
                     }
                 }
             }
         )
 
         recyclerView.adapter = businessAdapter
+
+        // 전달된 사업의 마커를 로드하고 지도에 표시
+        data?.bno?.let { initialBno ->
+            markerViewModel.loadMarkerList(initialBno)
+        }
+
+        // 마커를 로드할 때마다 지도에 표시
+        markerViewModel.markerList.observe(this) { markerList ->
+            markerList.forEach { markerData ->
+                // 인텐트로 전달된 사업인지 또는 체크된 사업인지 확인
+                val isInitialBusiness = markerData.bno == data?.bno
+                val isBusinessChecked = businessViewModel.businessList.value?.any { it.bno == markerData.bno && it.isChecked } == true
+
+                if (isInitialBusiness || isBusinessChecked) {
+                    // 사업 번호에 해당하는 고유 색상을 가져오거나 새로 추가
+                    val markerColor = businessColorMap.getOrPut(markerData.bno) { getNextMarkerColor() }
+
+                    val markerOptions = MarkerOptions()
+                        .position(LatLng(markerData.latitude, markerData.longitude))
+                        .title(markerData.title)
+                        .icon(BitmapDescriptorFactory.defaultMarker(markerColor)) // 같은 사업번호의 마커에 같은 색상 적용
+
+                    val marker = googleMap?.addMarker(markerOptions)
+                    marker?.tag = markerData.mno
+
+                    // 마커를 business ID로 매핑
+                    marker?.let {
+                        markerMap.getOrPut(markerData.bno) { mutableListOf() }.add(it)
+                    }
+                }
+            }
+
+            // 최초 로드 시에는 지도 중심 이동
+            if (markerList.isNotEmpty() && !isInitialMarkerLoaded) {
+                val firstMarker = markerList.first()
+                val firstLatLng = LatLng(firstMarker.latitude, firstMarker.longitude)
+                googleMap?.moveCamera(CameraUpdateFactory.newLatLngZoom(firstLatLng, 15f))
+                isInitialMarkerLoaded = true
+            }
+        }
 
         // BusinessViewModel의 데이터를 관찰하여 RecyclerView 업데이트
         businessViewModel.businessList.observe(this) { businessList ->
@@ -334,7 +316,6 @@ class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.Con
         } else {
             Toast.makeText(this, "네트워크 연결이 필요합니다.", Toast.LENGTH_SHORT).show()
         }
-    // 수민
 
         // UI 요소 초기화
         centerEditText = findViewById(R.id.centerEditText)
@@ -363,7 +344,8 @@ class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.Con
 
         // 위치 권한 요청
         if (ContextCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_FINE_LOCATION)
-            != PackageManager.PERMISSION_GRANTED) {
+            != PackageManager.PERMISSION_GRANTED
+        ) {
             requestPermissionLauncher.launch(
                 arrayOf(android.Manifest.permission.ACCESS_FINE_LOCATION)
             )
@@ -375,30 +357,26 @@ class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.Con
         val controlLineButton = findViewById<ImageButton>(R.id.controllLine)
         controlLineButton.setOnClickListener {
             if (isRestrictedAreaVisible) {
-                hideRestrictedAreas() // 규제구역 숨기기
+                hideRestrictedAreas()
             } else {
-                loadDevelopmentRestrictedAreas() // 규제구역 표시
+                loadDevelopmentRestrictedAreas()
             }
         }
 
         // 중앙 미리보기 마커와 위치 선택 텍스트뷰 설정
         centerMarkerPreview = findViewById(R.id.centerMarkerPreview)
         selectLocationTextView = findViewById(R.id.selectLocationTextView)
-        centerMarkerPreview.visibility = View.GONE // 초기에는 숨김
-        selectLocationTextView.visibility = View.GONE // 초기에는 숨김
+        centerMarkerPreview.visibility = View.GONE
+        selectLocationTextView.visibility = View.GONE
 
         // 좌표 선택 버튼 클릭 이벤트 설정
         val selctlotiLayout = findViewById<LinearLayout>(R.id.selctloti)
         selctlotiLayout.setOnClickListener {
             if (isRecyclerViewVisible) {
-                // 애니메이션을 통해 사업지 목록을 먼저 내립니다.
-                animateRecyclerView(false) // 사업지 목록 내리기
-
-                // 애니메이션이 끝난 후에 좌표 선택 동작을 실행합니다.
+                animateRecyclerView(false)
                 val listener = object : Animator.AnimatorListener {
                     override fun onAnimationStart(animation: Animator) {}
                     override fun onAnimationEnd(animation: Animator) {
-                        // 좌표 선택 동작 실행
                         isMarkerPreviewVisible = !isMarkerPreviewVisible
                         centerMarkerPreview.visibility = if (isMarkerPreviewVisible) View.VISIBLE else View.GONE
                         selectLocationTextView.visibility = if (isMarkerPreviewVisible) View.VISIBLE else View.GONE
@@ -407,46 +385,37 @@ class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.Con
                     override fun onAnimationCancel(animation: Animator) {}
                     override fun onAnimationRepeat(animation: Animator) {}
                 }
-
-                // 애니메이션에 리스너를 추가하여 끝난 후에 실행될 동작을 정의합니다.
                 ObjectAnimator.ofFloat(recyclerLayout, "translationY", recyclerLayout.height.toFloat()).apply {
-                    duration = 500 // 애니메이션 지속 시간 (ms)
+                    duration = 500
                     addListener(listener)
                 }.start()
 
             } else {
-                // 사업지 목록이 보이지 않을 때는 바로 좌표 선택 동작을 실행합니다.
                 isMarkerPreviewVisible = !isMarkerPreviewVisible
                 centerMarkerPreview.visibility = if (isMarkerPreviewVisible) View.VISIBLE else View.GONE
                 selectLocationTextView.visibility = if (isMarkerPreviewVisible) View.VISIBLE else View.GONE
             }
         }
 
-
         // '지정하기' 버튼 클릭 이벤트 설정
         val selectLocationButton = findViewById<TextView>(R.id.selectLocationTextView)
         selectLocationButton.setOnClickListener {
             val currentCenter = googleMap?.cameraPosition?.target
-
             if (currentCenter != null) {
-                // 규제구역 내에 있는지 확인
                 if (isLocationInRestrictedArea(currentCenter.latitude, currentCenter.longitude)) {
                     Toast.makeText(this, "규제구역입니다. 마커를 추가할 수 없습니다.", Toast.LENGTH_SHORT).show()
                 } else {
-                    // 여기서 Marker 객체를 생성
                     val marker = com.example.liststart.model.Marker(
-                        mno = 0L, // mno는 서버에서 자동으로 생성됨
-                        regdate = "", // 서버에서 자동으로 처리됨
-                        update = "", // 서버에서 자동으로 처리됨
-                        degree = 0L, // 필요 시 설정
-                        latitude = currentCenter.latitude, // 사용자가 찍은 위도
-                        longitude = currentCenter.longitude, // 사용자가 찍은 경도
-                        bno = data?.bno ?: 0L, // MainActivity에서 전달된 bno 사용
-                        model = "model1", // 사용자가 선택한 모델명
-                        title = title ?: "사업체명" // 사업체명 또는 사용자 입력 제목
+                        mno = 0L,
+                        regdate = "",
+                        update = "",
+                        degree = 0L,
+                        latitude = currentCenter.latitude,
+                        longitude = currentCenter.longitude,
+                        bno = data?.bno ?: 0L,
+                        model = "model1",
+                        title = title ?: "사업체명"
                     )
-
-                    // 서버로 마커 데이터를 전송하는 함수 호출
                     saveMarkerToServer(marker)
                 }
             } else {
@@ -454,7 +423,6 @@ class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.Con
             }
         }
 
-    //수민
         // 수정 버튼 클릭 이벤트 설정
         rightButton = findViewById(R.id.rightButton)
         rightButton.setOnClickListener {
@@ -463,7 +431,6 @@ class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.Con
             businessViewModel.updateBusiness(data!!)
             Toast.makeText(this, "수정된 제목: $newTitle", Toast.LENGTH_SHORT).show()
         }
-    //수민
 
         // GPS 위치로 이동 버튼 설정
         leftButton = findViewById(R.id.leftButton)
@@ -471,27 +438,44 @@ class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.Con
             moveToCurrentLocation()
         }
 
-    // 수민
         // 사업지 목록 버튼 이벤트
         getListButton = findViewById(R.id.getListButton)
         getListButton.setOnClickListener {
             if (!isRecyclerViewVisible) {
-                // 슬라이드 업 애니메이션 실행
                 animateRecyclerView(true)
             } else {
-                // 슬라이드 다운 애니메이션 실행
                 animateRecyclerView(false)
             }
         }
-    // 수민
 
         //AR camera
-//        val cameraBtn = findViewById<LinearLayout>(R.id.cameraBtn)
-//        cameraBtn.setOnClickListener{
-//            val intent = Intent(this, UnityPlayerActivity::class.java)
-//            intent.putExtra("unity", "some_value")  // 여기에 문자열 값을 명시적으로 전달
-//            startActivity(intent)
-//        }
+//    val cameraBtn = findViewById<LinearLayout>(R.id.cameraBtn)
+//    cameraBtn.setOnClickListener{
+//        val intent = Intent(this, UnityPlayerActivity::class.java)
+//        intent.putExtra("unity", "some_value")
+//        startActivity(intent)
+//    }
+    }
+
+    // 체크박스 해제 시 마커를 제거하는 함수
+    private fun removeMarkersForBusiness(bno: Long) {
+        markerMap[bno]?.forEach { marker ->
+            marker.remove() // 지도에서 마커 제거
+        }
+        // 제거 후 해당 사업의 마커 리스트도 초기화
+        markerMap[bno]?.clear()
+        // businessColorMap에서도 해당 사업 번호의 색상 제거
+        businessColorMap.remove(bno)
+    }
+
+    private fun updateMarkersVisibility() {
+        // 모든 마커의 가시성을 체크 상태에 따라 업데이트
+        markerMap.forEach { (bno, markers) ->
+            val isBusinessChecked = businessViewModel.businessList.value?.any { it.bno == bno && it.isChecked } == true
+            markers.forEach { marker ->
+                marker.isVisible = isBusinessChecked
+            }
+        }
     }
 
     //현용
