@@ -17,4 +17,8 @@ class BusinessDataSourceImpl(private val apiService: TurbineAPIService) : Busine
     override suspend fun deleteBusinesses(ids: List<Long>): Response<Unit> {
         return apiService.deleteBusinesses(ids)
     }
+
+    override suspend fun updateBusiness(bno: Long, business: Business): Response<Business> {
+        return apiService.updateBusiness(bno, business)
+    }
 }

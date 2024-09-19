@@ -24,6 +24,10 @@ interface TurbineAPIService {
     suspend fun deleteBusinesses(@Body ids: List<Long>): Response<Unit>
 
     @Headers("Content-Type: application/json")
+    @POST("post/business/update/{bno}")
+    suspend fun updateBusiness(@Path(value = "bno") bno: Long, @Body business: Business): Response<Business>
+
+    @Headers("Content-Type: application/json")
     @GET("get/marker/{bno}")
     suspend fun getMarkerList(@Path(value = "bno") bno: Long): Response<List<Marker>>
 }
