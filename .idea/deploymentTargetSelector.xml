@@ -2,21 +2,13 @@
 <project version="4">
   <component name="deploymentTargetSelector">
     <selectionStates>
-      <SelectionState runConfigName="liststart">
+      <SelectionState runConfigName="app">
         <option name="selectionMode" value="DROPDOWN" />
-        <DropdownSelection timestamp="2024-09-13T15:36:03.523588200Z">
-          <Target type="DEFAULT_BOOT">
-            <handle>
-              <DeviceId pluginId="PhysicalDevice" identifier="serial=R5CX41EGPVA" />
-            </handle>
-          </Target>
-        </DropdownSelection>
-        <DialogSelection />
       </SelectionState>
       <SelectionState runConfigName="ch19_map">
         <option name="selectionMode" value="DROPDOWN" />
       </SelectionState>
-      <SelectionState runConfigName="app">
+      <SelectionState runConfigName="liststart">
         <option name="selectionMode" value="DROPDOWN" />
       </SelectionState>
     </selectionStates>

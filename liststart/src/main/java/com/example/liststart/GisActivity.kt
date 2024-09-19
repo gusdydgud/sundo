@@ -630,7 +630,11 @@ class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.Con
         dialogView.findViewById<TextView>(R.id.tv_target).apply {
             text = "저장하기"
             setOnClickListener {
-                // 도분초 및 위도, 경도 값 모두 받기
+                // 기존 값과 비교하기 위한 현재 위도/경도 값 저장
+                val oldLatitude = marker.position.latitude
+                val oldLongitude = marker.position.longitude
+
+                // 새로운 위도/경도 및 도분초 값 가져오기
                 val degreesLat = dialogView.findViewById<EditText>(R.id.degrees_lat).text.toString().toDoubleOrNull()
                 val minutesLat = dialogView.findViewById<EditText>(R.id.minutes_lat).text.toString().toDoubleOrNull()
                 val secondsLat = dialogView.findViewById<EditText>(R.id.seconds_lat).text.toString().toDoubleOrNull()
@@ -642,28 +646,21 @@ class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.Con
                 val newLatitude = latitudeEditText.text.toString().toDoubleOrNull()
                 val newLongitude = longitudeEditText.text.toString().toDoubleOrNull()
 
-                // 도분초 및 위도/경도 값이 모두 입력되었는지 확인
-                if (degreesLat != null && minutesLat != null && secondsLat != null &&
-                    degreesLong != null && minutesLong != null && secondsLong != null) {
-                    // 도분초 값을 위도 경도 값으로 변환
-                    val latDecimal = dmsToDecimal(degreesLat, minutesLat, secondsLat)
-                    val longDecimal = dmsToDecimal(degreesLong, minutesLong, secondsLong)
+                // 도분초 값이 입력되었는지 여부 확인
+                val isDMSChanged = degreesLat != null && minutesLat != null && secondsLat != null &&
+                        degreesLong != null && minutesLong != null && secondsLong != null
 
-                    // 위도/경도 필드에도 값 반영
-                    latitudeEditText.setText(latDecimal.toString())
-                    longitudeEditText.setText(longDecimal.toString())
+                // 위도/경도 값이 입력되었는지 여부 확인
+                val isLatLngChanged = newLatitude != null && newLongitude != null
 
-                    // 마커의 위치를 새로운 위도/경도로 업데이트
-                    marker.position = LatLng(latDecimal, longDecimal)
+                // 위도/경도 값이 변경된 경우
+                if (isLatLngChanged && (newLatitude != oldLatitude || newLongitude != oldLongitude)) {
+                    // 위도/경도 값을 사용해 마커 위치를 업데이트
+                    marker.position = LatLng(newLatitude ?: 0.0, newLongitude ?: 0.0)  // null일 경우 0.0으로 기본값 설정
 
-                    marker.showInfoWindow()
-                    Toast.makeText(this@GisActivity, "마커 위치가 업데이트되었습니다.", Toast.LENGTH_SHORT).show()
-                    alertDialog.dismiss()
-
-                } else if (newLatitude != null && newLongitude != null) {
-                    // 위도와 경도 값만 입력된 경우, 도분초 값으로 변환
-                    val (convertedLatDegrees, convertedLatMinutes, convertedLatSeconds) = decimalToDMS(newLatitude)
-                    val (convertedLongDegrees, convertedLongMinutes, convertedLongSeconds) = decimalToDMS(newLongitude)
+                    // 위도/경도를 도분초로 변환하여 반영
+                    val (convertedLatDegrees, convertedLatMinutes, convertedLatSeconds) = decimalToDMS(newLatitude ?: 0.0)
+                    val (convertedLongDegrees, convertedLongMinutes, convertedLongSeconds) = decimalToDMS(newLongitude ?: 0.0)
 
                     dialogView.findViewById<EditText>(R.id.degrees_lat).setText(convertedLatDegrees.toString())
                     dialogView.findViewById<EditText>(R.id.minutes_lat).setText(convertedLatMinutes.toString())
@@ -673,15 +670,42 @@ class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.Con
                     dialogView.findViewById<EditText>(R.id.minutes_long).setText(convertedLongMinutes.toString())
                     dialogView.findViewById<EditText>(R.id.seconds_long).setText(convertedLongSeconds.toString())
 
-                    marker.position = LatLng(newLatitude, newLongitude)
+                    // 마커 이동 후 업데이트
                     marker.showInfoWindow()
-                    Toast.makeText(this@GisActivity, "마커 위치가 업데이트되었습니다.", Toast.LENGTH_SHORT).show()
+                    googleMap?.moveCamera(CameraUpdateFactory.newLatLng(LatLng(newLatitude ?: 0.0, newLongitude ?: 0.0)))
+                    Toast.makeText(this@GisActivity, "마커 위치가 위도/경도 값을 기준으로 업데이트되었습니다.", Toast.LENGTH_SHORT).show()
                     alertDialog.dismiss()
+
+
+                // 도분초 값이 변경된 경우
+                } else if (isDMSChanged) {
+                    // 도분초를 위도/경도로 변환하여 업데이트
+                    val latDecimal = dmsToDecimal(degreesLat ?: 0.0, minutesLat ?: 0.0, secondsLat ?: 0.0)
+                    val longDecimal = dmsToDecimal(degreesLong ?: 0.0, minutesLong ?: 0.0, secondsLong ?: 0.0)
+
+                    // 위도/경도 필드에 변환된 값 반영
+                    latitudeEditText.setText(latDecimal.toString())
+                    longitudeEditText.setText(longDecimal.toString())
+
+                    // 마커의 위치를 도분초 값 기준으로 업데이트
+                    marker.position = LatLng(latDecimal, longDecimal)
+
+                    marker.showInfoWindow()
+                    googleMap?.moveCamera(CameraUpdateFactory.newLatLng(LatLng(latDecimal, longDecimal)))
+                    Toast.makeText(this@GisActivity, "마커 위치가 도분초 값을 기준으로 업데이트되었습니다.", Toast.LENGTH_SHORT).show()
+                    alertDialog.dismiss()
+
                 } else {
                     Toast.makeText(this@GisActivity, "올바른 값을 입력하세요.", Toast.LENGTH_SHORT).show()
                 }
             }
         }
+
+
+
+
+
+
 
         // 삭제하기 클릭 이벤트
         dialogView.findViewById<TextView>(R.id.tv_delete).setOnClickListener {
@@ -690,6 +714,7 @@ class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.Con
             alertDialog.dismiss()
         }
     }
+
 
     // 규제구역 로드 함수 수정: 마커 위치를 확인하고 규제구역 내에 있는 마커는 삭제
 

@@ -97,6 +97,7 @@
 
 
     <!-- Button on top of the Map -->
+    <!-- 기존 왼쪽 버튼 유지 -->
     <ImageButton
         android:id="@+id/controllLine"
         android:layout_width="40dp"
@@ -105,11 +106,28 @@
         android:layout_marginLeft="20dp"
         android:layout_marginTop="120dp"
         android:background="@drawable/textname"
-        android:contentDescription="Left Button"
+        android:contentDescription="규제지역 버튼"
         android:padding="6dp"
         android:scaleType="centerCrop"
         app:tint="@color/black"
         android:src="@drawable/ic_alert" />
+
+    <!-- 새로운 오른쪽 버튼 추가 -->
+
+
+    <ImageButton
+        android:id="@+id/controllLineRight"
+        android:layout_width="40dp"
+        android:layout_height="40dp"
+        android:layout_alignParentEnd="true"
+        android:layout_marginTop="120dp"
+        android:layout_marginLeft="350dp"
+        android:background="@drawable/textname"
+        android:contentDescription="새 규제지역 기능"
+        android:padding="6dp"
+        android:scaleType="centerCrop"
+        android:src="@drawable/ic_alert"
+        app:tint="@color/black" />
 
     <ImageView
         android:id="@+id/centerMarkerPreview"
