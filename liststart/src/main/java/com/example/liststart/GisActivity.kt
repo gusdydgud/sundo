@@ -35,6 +35,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
+import androidx.core.content.ContextCompat.getSystemService
 import androidx.lifecycle.ViewModelProvider
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
@@ -107,6 +108,34 @@ class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.Con
     private lateinit var businessAdapter: BusinessAdapter // 비즈니스 데이터용 RecyclerView 어댑터
     private lateinit var businessViewModel: BusinessViewModel // 비즈니스 ViewModel
     private lateinit var markerViewModel: MarkerViewModel // 마커 ViewModel
+
+// 수민
+    // 사업별로 색상을 매핑할 Map
+    private val businessColorMap = mutableMapOf<Long, Float>()
+    private val colorList = listOf(
+        BitmapDescriptorFactory.HUE_RED,
+        BitmapDescriptorFactory.HUE_BLUE,
+        BitmapDescriptorFactory.HUE_GREEN,
+        BitmapDescriptorFactory.HUE_ORANGE,
+        BitmapDescriptorFactory.HUE_YELLOW,
+        BitmapDescriptorFactory.HUE_VIOLET
+    )
+    private var currentMarkerColorIndex = 0
+    // 마커와 비즈니스 ID를 매핑할 Map 추가
+    private val markerMap = mutableMapOf<Long, MutableList<Marker>>()
+
+    // 지도 이동을 제어하는 변수 추가
+    private var isInitialMarkerLoaded = false
+
+    // 사업에 따라 고유 색상 지정
+    private fun getNextMarkerColor(): Float {
+        // 현재 색상 인덱스에 해당하는 색상 선택
+        val color = colorList[currentMarkerColorIndex]
+        // 다음 색상을 위해 인덱스 업데이트, 배열의 끝에 도달하면 0으로 리셋
+        currentMarkerColorIndex = (currentMarkerColorIndex + 1) % colorList.size
+        return color
+    }
+// 수민
 
     // 규제구역 내에 있는지 확인하는 함수
     private fun isLocationInRestrictedArea(lat: Double, long: Double): Boolean {
@@ -202,18 +231,9 @@ class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.Con
             recyclerLayout.translationY = recyclerLayout.height.toFloat()
         }
 
-        // 어댑터 초기화
-        businessAdapter = BusinessAdapter(isVisible = false) { item -> handleClick(item) }
-        recyclerView.adapter = businessAdapter
-
-        // BusinessViewModel의 데이터를 관찰하여 RecyclerView 업데이트
-        businessViewModel.businessList.observe(this) { businessList ->
-            businessAdapter.updateList(businessList)
-        }
-
-        // MarkerViewModel의 데이터를 관찰하여 마커 리스트 업데이트 및 첫 번째 마커로 지도 이동
+        // 마커를 처음 로드할 때만 이동하도록 설정
         markerViewModel.markerList.observe(this) { markerList ->
-            if (markerList.isNotEmpty()) {
+            if (markerList.isNotEmpty() && !isInitialMarkerLoaded) {
                 val firstMarker = markerList.first()
 
                 // 첫 번째 마커의 좌표로 지도 중심을 이동
@@ -227,7 +247,62 @@ class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.Con
                         .title(markerData.title)  // 마커 제목 설정
                     googleMap?.addMarker(markerOptions)
                 }
+
+                // 첫 번째 마커로 이동한 후에는 다시 실행되지 않도록 설정
+                isInitialMarkerLoaded = true
             }
+        }
+
+        // 마커 리스트 로드
+        data?.bno?.let { bno ->
+            markerViewModel.loadMarkerList(bno)
+        }
+
+        // 어댑터 초기화
+        businessAdapter = BusinessAdapter(
+            isVisible = true,
+            onItemClick = { item -> handleClick(item) },
+            onCheckBoxClick = { item ->
+                item.bno?.let { bno ->
+                    markerViewModel.loadMarkerList(bno)
+
+                    // 기존 마커 이동 로직 제거
+                    markerViewModel.markerList.observe(this) { markerList ->
+                        if (markerList.isNotEmpty()) {
+                            // 체크박스가 체크되었을 때
+                            if (item.isChecked) {
+                                markerList.forEach { markerData ->
+                                    // 사업 번호에 해당하는 고유 색상을 가져오거나 새로 추가
+                                    val markerColor = businessColorMap.getOrPut(bno) { getNextMarkerColor() }
+                                    val marker = addMarkerAtLocation(
+                                        markerData.latitude,
+                                        markerData.longitude,
+                                        markerData.title ?: "마커",
+                                        markerColor
+                                    )
+
+                                    // 마커를 business ID로 매핑
+                                    markerMap.getOrPut(bno) { mutableListOf() }.add(marker)
+                                }
+                            } else {
+                                // 체크박스가 해제되었을 때 마커 제거
+                                markerMap[bno]?.forEach { marker ->
+                                    marker.remove()
+                                }
+                                // 제거 후 해당 사업의 마커 리스트도 초기화
+                                markerMap[bno]?.clear()
+                            }
+                        }
+                    }
+                }
+            }
+        )
+
+        recyclerView.adapter = businessAdapter
+
+        // BusinessViewModel의 데이터를 관찰하여 RecyclerView 업데이트
+        businessViewModel.businessList.observe(this) { businessList ->
+            businessAdapter.updateList(businessList)
         }
 
         // ViewModel의 에러 메시지를 관찰하여 토스트로 표시
@@ -240,8 +315,10 @@ class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.Con
 
         // 네트워크 상태 확인 후 데이터 로딩
         if (Constants.isNetworkAvailable(this)) {
-            businessViewModel.loadBusinessList()
-
+            data?.let { currentBusiness ->
+                // 현재 선택된 사업지를 제외한 사업지 목록 로드
+                businessViewModel.loadBusinessListExcluding(currentBusiness)
+            }
             // bno가 null이 아닌 경우에만 마커 로딩
             data?.bno?.let { bno ->
                 markerViewModel.loadMarkerList(bno)
@@ -454,6 +531,7 @@ class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.Con
         googleMap?.moveCamera(CameraUpdateFactory.newLatLngZoom(latLng, 15f))
     }
     //현용
+    // 기존 마커 추가 함수는 변경 없이 사용
     private fun addMarkerAtLocation(
         latitude: Double,
         longitude: Double,
@@ -477,7 +555,6 @@ class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.Con
 
         return marker ?: throw IllegalStateException("Marker could not be added")
     }
-
 
     class CustomInfoWindowAdapter(private val context: Context) : GoogleMap.InfoWindowAdapter {
 
@@ -705,12 +782,6 @@ class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.Con
                 }
             }
         }
-
-
-
-
-
-
 
         // 삭제하기 클릭 이벤트
         dialogView.findViewById<TextView>(R.id.tv_delete).setOnClickListener {
