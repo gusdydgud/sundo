@@ -419,8 +419,7 @@ class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.Con
         }
 
         // '지정하기' 버튼 클릭 이벤트 설정
-        val selectLocationButton = findViewById<TextView>(R.id.selectLocationTextView)
-        selectLocationButton.setOnClickListener {
+        selectLocationTextView.setOnClickListener {
             val currentCenter = googleMap?.cameraPosition?.target
             if (currentCenter != null) {
                 if (isLocationInRestrictedArea(currentCenter.latitude, currentCenter.longitude)) {
@@ -435,7 +434,7 @@ class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.Con
                         longitude = currentCenter.longitude,
                         bno = data?.bno ?: 0L,
                         model = "model1",
-                        title = (title ?: "사업체명") + "$markerCounter"
+                        title = (title ?: "사업체명") + " $markerCounter"
                     )
                     saveMarkerToServer(marker)
                 }
@@ -462,6 +461,11 @@ class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.Con
         // 사업지 목록 버튼 이벤트
         getListButton = findViewById(R.id.getListButton)
         getListButton.setOnClickListener {
+            if(isMarkerPreviewVisible) {
+                isMarkerPreviewVisible = !isMarkerPreviewVisible
+                centerMarkerPreview.visibility = if (isMarkerPreviewVisible) View.VISIBLE else View.GONE
+                selectLocationTextView.visibility = if (isMarkerPreviewVisible) View.VISIBLE else View.GONE
+            }
             if (!isRecyclerViewVisible) {
                 animateRecyclerView(true)
             } else {
