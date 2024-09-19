@@ -471,6 +471,7 @@ class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.Con
         googleMap?.moveCamera(CameraUpdateFactory.newLatLngZoom(latLng, 15f))
     }
     //현용
+    // 마커를 지도에 추가하고 tag에 mno 값을 설정 현용건들지마
     private fun addMarkerAtLocation(
         latitude: Double,
         longitude: Double,
@@ -481,18 +482,18 @@ class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.Con
         val latLng = LatLng(latitude, longitude)
         val markerOption = MarkerOptions()
             .position(latLng)
-            .title(title)  // 마커 제목 설정
+            .title(title)
             .icon(BitmapDescriptorFactory.defaultMarker(markerColor))
 
         val marker = googleMap?.addMarker(markerOption)
 
-        // 마커에 mno가 있는 경우 태그로 설정
-        marker?.tag = markerData?.mno ?: 0L // 기본값으로 0L을 설정하거나, 마커 생성 시 유효한 mno 값을 사용
+        // 새 마커인 경우 mno는 0L이므로, 서버에서 가져온 마커에 대해서만 태그에 mno 설정
+        marker?.tag = markerData?.mno ?: 0L // 새로 추가한 마커는 기본 0L, 서버에서 가져온 마커는 실제 mno
 
         // 마커가 성공적으로 추가되면 리스트에 저장하고 카운터를 증가시킵니다.
         if (marker != null) {
             markersList.add(marker)
-            markerCounter++ // 마커 추가 후 카운터 증가
+            markerCounter++
             marker.showInfoWindow() // InfoWindow를 바로 표시
         }
 
@@ -518,7 +519,7 @@ class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.Con
             return view
         }
     }
-//현용
+//현용 위에부분끝
 
     override fun onConnected(p0: Bundle?) {
         val lat = intent.getDoubleExtra("lat", 0.0)
@@ -562,7 +563,7 @@ class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.Con
         }
         return super.dispatchTouchEvent(ev)
     }
-
+//여기부터 삭제까지
     private fun showCustomDialog(marker: Marker) {
         val dialogView = LayoutInflater.from(this).inflate(R.layout.dialog_markinfo, null)
 
@@ -652,6 +653,12 @@ class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.Con
         val alertDialog = dialogBuilder.create()
         alertDialog.show()
 
+        val mno = marker.tag as? Long // marker.tag로부터 mno 값을 가져옴
+        if (mno == null || mno == 0L) {
+            Toast.makeText(this, "마커 정보가 잘못되었습니다.", Toast.LENGTH_SHORT).show()
+            return
+        }
+
         // 저장하기 클릭 이벤트
         dialogView.findViewById<TextView>(R.id.tv_target).apply {
             text = "저장하기"
@@ -669,6 +676,7 @@ class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.Con
                 val minutesLong = dialogView.findViewById<EditText>(R.id.minutes_long).text.toString().toDoubleOrNull()
                 val secondsLong = dialogView.findViewById<EditText>(R.id.seconds_long).text.toString().toDoubleOrNull()
 
+                // 입력된 위도/경도 값 또는 도분초 변환 값을 사용
                 val newLatitude = latitudeEditText.text.toString().toDoubleOrNull()
                 val newLongitude = longitudeEditText.text.toString().toDoubleOrNull()
 
@@ -681,10 +689,10 @@ class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.Con
 
                 // 위도/경도 값이 변경된 경우
                 if (isLatLngChanged && (newLatitude != oldLatitude || newLongitude != oldLongitude)) {
-                    // 위도/경도 값을 사용해 마커 위치를 업데이트
-                    marker.position = LatLng(newLatitude ?: 0.0, newLongitude ?: 0.0)  // null일 경우 0.0으로 기본값 설정
+                    // 마커 위치 업데이트
+                    marker.position = LatLng(newLatitude ?: 0.0, newLongitude ?: 0.0)
 
-                    // 위도/경도를 도분초로 변환하여 반영
+                    // 위도/경도를 도분초로 변환하여 필드에 반영
                     val (convertedLatDegrees, convertedLatMinutes, convertedLatSeconds) = decimalToDMS(newLatitude ?: 0.0)
                     val (convertedLongDegrees, convertedLongMinutes, convertedLongSeconds) = decimalToDMS(newLongitude ?: 0.0)
 
@@ -696,10 +704,9 @@ class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.Con
                     dialogView.findViewById<EditText>(R.id.minutes_long).setText(convertedLongMinutes.toString())
                     dialogView.findViewById<EditText>(R.id.seconds_long).setText(convertedLongSeconds.toString())
 
-                    // 마커 이동 후 업데이트
                     marker.showInfoWindow()
                     googleMap?.moveCamera(CameraUpdateFactory.newLatLng(LatLng(newLatitude ?: 0.0, newLongitude ?: 0.0)))
-                    Toast.makeText(this@GisActivity, "마커 위치가 위도/경도 값을 기준으로 업데이트되었습니다.", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(this@GisActivity, "마커 위치가 위도/경도 값으로 업데이트되었습니다.", Toast.LENGTH_SHORT).show()
                     alertDialog.dismiss()
 
                     // 서버로 마커 정보 업데이트
@@ -722,7 +729,6 @@ class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.Con
                         Toast.makeText(this@GisActivity, "마커 정보가 잘못되었습니다.", Toast.LENGTH_SHORT).show()
                     }
 
-                    // 도분초 값이 변경된 경우
                 } else if (isDMSChanged) {
                     // 도분초를 위도/경도로 변환하여 업데이트
                     val latDecimal = dmsToDecimal(degreesLat ?: 0.0, minutesLat ?: 0.0, secondsLat ?: 0.0)
@@ -734,14 +740,13 @@ class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.Con
 
                     // 마커의 위치를 도분초 값 기준으로 업데이트
                     marker.position = LatLng(latDecimal, longDecimal)
-
                     marker.showInfoWindow()
                     googleMap?.moveCamera(CameraUpdateFactory.newLatLng(LatLng(latDecimal, longDecimal)))
-                    Toast.makeText(this@GisActivity, "마커 위치가 도분초 값을 기준으로 업데이트되었습니다.", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(this@GisActivity, "마커 위치가 도분초 값으로 업데이트되었습니다.", Toast.LENGTH_SHORT).show()
                     alertDialog.dismiss()
 
                     // 서버로 마커 정보 업데이트
-                    val mno = marker.tag as? Long // marker.tag를 안전하게 Long으로 변환
+                    val mno = marker.tag as? Long
                     if (mno != null) {
                         updateMarkerOnServer(
                             com.example.liststart.model.Marker(
@@ -759,35 +764,53 @@ class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.Con
                     } else {
                         Toast.makeText(this@GisActivity, "마커 정보가 잘못되었습니다.", Toast.LENGTH_SHORT).show()
                     }
-
                 } else {
                     Toast.makeText(this@GisActivity, "올바른 값을 입력하세요.", Toast.LENGTH_SHORT).show()
                 }
             }
         }
 
-
-
-
-
-
-
-        // 삭제하기 클릭 이벤트
+// 삭제하기 클릭 이벤트 이부분 건들지마셈
         dialogView.findViewById<TextView>(R.id.tv_delete).setOnClickListener {
-            val mno = marker.tag as? Long // marker.tag를 Long으로 변환
+            val mno = marker.tag as? Long // marker.tag로부터 mno 값을 가져옴
 
             if (mno != null && mno != 0L) {
-                markerViewModel.deleteMarker(mno) // 서버로 삭제 요청
-                marker.remove() // UI에서 마커 삭제
-                Toast.makeText(this, "마커가 삭제되었습니다.", Toast.LENGTH_SHORT).show()
+                // 서버에 마커 삭제 요청
+                CoroutineScope(Dispatchers.IO).launch {
+                    try {
+                        markerViewModel.deleteMarker(mno)
+
+                        withContext(Dispatchers.Main) {
+                            // GoogleMap에서 마커 삭제
+                            marker.remove()
+
+                            // markersList에서도 해당 마커 삭제
+                            val iterator = markersList.iterator()
+                            while (iterator.hasNext()) {
+                                val currentMarker = iterator.next()
+                                if (currentMarker.tag == mno) {
+                                    currentMarker.remove() // GoogleMap에서 마커 삭제
+                                    iterator.remove() // markersList에서 마커 제거
+                                }
+                            }
+
+                            Toast.makeText(this@GisActivity, "마커가 삭제되었습니다.", Toast.LENGTH_SHORT).show()
+
+                            // 마커 목록을 서버에서 다시 불러와 화면에 업데이트
+                            markerViewModel.loadMarkerList(data?.bno ?: 0L)
+                        }
+                    } catch (e: Exception) {
+                        withContext(Dispatchers.Main) {
+                            Toast.makeText(this@GisActivity, "마커 삭제에 실패했습니다: ${e.message}", Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                }
             } else {
-                Toast.makeText(this, "마커 정보가 잘못되었습니다.", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this@GisActivity, "마커 정보가 잘못되었습니다.", Toast.LENGTH_SHORT).show()
             }
             alertDialog.dismiss() // 다이얼로그 닫기
         }
     }
-
-
     // 규제구역 로드 함수 수정: 마커 위치를 확인하고 규제구역 내에 있는 마커는 삭제
 
     private fun loadDevelopmentRestrictedAreas() {
@@ -979,20 +1002,31 @@ class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.Con
         //addMarkerAtLocation(data.lat, data.long, data.title)
     }
     // 수민
+    //이부분건들지마시오시작
     private fun saveMarkerToServer(marker: com.example.liststart.model.Marker) {
         val apiService = Constants.turbineApiService
         CoroutineScope(Dispatchers.IO).launch {
             try {
                 val response = apiService.addMarker(marker)
                 if (response.isSuccessful) {
+                    val savedMarker = response.body() // 서버로부터 저장된 마커 정보를 가져옴
                     withContext(Dispatchers.Main) {
                         Toast.makeText(this@GisActivity, "마커가 서버에 저장되었습니다.", Toast.LENGTH_SHORT).show()
 
-                        // 성공적으로 저장 후 마커를 지도에 추가
-                        addMarkerAtLocation(marker.latitude, marker.longitude, marker.title ?: "마커")
+                        // 성공적으로 저장된 후, 새로 추가한 마커에 서버에서 반환된 mno 설정
+                        val addedMarker = addMarkerAtLocation(
+                            latitude = savedMarker?.latitude ?: marker.latitude,
+                            longitude = savedMarker?.longitude ?: marker.longitude,
+                            title = savedMarker?.title ?: marker.title ?: "기본 제목", // title 값이 없을 때 기본 제목 설정
+                            markerColor = BitmapDescriptorFactory.HUE_RED,
+                            markerData = savedMarker // 서버에서 반환된 마커 데이터 사용
+                        )
 
-                        // 마커 저장 후 서버에서 마커 리스트 다시 불러오기 (마커 리스트 업데이트)
-                        markerViewModel.loadMarkerList(marker.bno)
+                        // 서버에서 반환된 mno 값을 새로 추가된 마커의 tag에 설정
+                        addedMarker.tag = savedMarker?.mno
+
+                        // markersList에 추가된 마커를 갱신
+                        markersList.add(addedMarker)
                     }
                 } else {
                     withContext(Dispatchers.Main) {
@@ -1006,6 +1040,7 @@ class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.Con
             }
         }
     }
+    //여기까지건들지마셈
     private fun updateMarkerOnServer(marker: com.example.liststart.model.Marker) {
         val apiService = Constants.turbineApiService
         CoroutineScope(Dispatchers.IO).launch {
