@@ -10,49 +10,96 @@ import kotlinx.coroutines.launch
 
 class MarkerViewModel(private val markerDataSource: MarkerDataSource) : ViewModel() {
 
-    // 마커 목록 저장하는 변수와 LiveData
+    // Marker List
     private var markerItems: MutableList<Marker> = mutableListOf()
     private val _markerList = MutableLiveData<MutableList<Marker>>()
     val markerList: LiveData<MutableList<Marker>>
         get() = _markerList
 
-    // 에러
+    // Error handling
     private val _error = MutableLiveData<String>()
     val error: LiveData<String>
         get() = _error
 
-    // 삭제 기능 수정: 삭제 후 UI에서 바로 제거
-    fun deleteMarker(mno: Long) {
+    // 마커 업데이트 결과를 전달할 LiveData
+    private val _updateResult = MutableLiveData<String>()
+    val updateResult: LiveData<String>
+        get() = _updateResult
+
+    // 특정 사업(bno)에 대한 마커 목록 로드
+    fun loadMarkerList(bno: Long) {
+        viewModelScope.launch {
+            try {
+                val response = markerDataSource.getMarkerList(bno)
+                if (response.isSuccessful && response.body() != null) {
+                    markerItems = response.body()!!.toMutableList()
+                    _markerList.postValue(markerItems)
+                } else {
+                    _error.postValue("마커 목록을 불러오지 못했습니다: ${response.message()}")
+                }
+            } catch (e: Exception) {
+                _error.postValue("마커 목록을 불러오는 중 오류 발생: ${e.localizedMessage}")
+            }
+        }
+    }
+
+    // 새 마커 추가
+    fun addMarker(marker: Marker, onSuccess: (Marker) -> Unit, onFailure: (String) -> Unit) {
+        viewModelScope.launch {
+            try {
+                val response = markerDataSource.addMarker(marker)
+                val newMarker = response.body()
+                if (response.isSuccessful && newMarker != null) {
+                    markerItems.add(0, newMarker)
+                    _markerList.postValue(markerItems.toMutableList()) // 목록 업데이트
+                    onSuccess(newMarker) // UI에 알림
+                } else {
+                    onFailure("마커 추가 실패: ${response.message()}")
+                }
+            } catch (e: Exception) {
+                onFailure("마커 추가 중 오류 발생: ${e.localizedMessage}")
+            }
+        }
+    }
+
+    // mno로 마커 삭제
+    fun deleteMarker(mno: Long, bno: Long) {
         viewModelScope.launch {
             try {
                 val response = markerDataSource.deleteMarker(mno)
                 if (response.isSuccessful) {
                     // 마커 리스트에서 해당 마커를 제거
                     markerItems.removeAll { it.mno == mno }
-                    _markerList.value = markerItems // UI 업데이트
-
+                    _markerList.postValue(markerItems.toMutableList()) // LiveData 업데이트
                 } else {
-                    _error.value = "마커 삭제 실패: ${response.message()}"
+                    _error.postValue("마커 삭제 실패: ${response.message()}")
                 }
             } catch (e: Exception) {
-                _error.value = "오류 발생: ${e.message}"
+                _error.postValue("오류 발생: ${e.localizedMessage}")
             }
         }
     }
 
-    // 마커 목록을 서버에서 로드
-    fun loadMarkerList(bno: Long) {
+    // 마커 업데이트
+    fun updateMarker(marker: Marker) {
+        val mno = marker.mno
+        if (mno == null) {
+            _error.value = "마커 ID가 없습니다."
+            return
+        }
+
         viewModelScope.launch {
             try {
-                val response = markerDataSource.getMarkerList(bno)
+                val response = markerDataSource.updateMarker(marker.mno, marker) // mno 경로 변수로 추가
                 if (response.isSuccessful) {
-                    markerItems = response.body()!!.toMutableList()
-                    _markerList.value = markerItems
+                    _updateResult.postValue("마커가 서버에 업데이트되었습니다.")
+                    // 업데이트 성공 시, 기존 마커 목록을 다시 로드하여 UI 갱신
+                    loadMarkerList(marker.bno)
                 } else {
-                    _error.value = "데이터를 가져오는 데 실패했습니다: ${response.message()}"
+                    _updateResult.postValue("마커 업데이트 실패: ${response.message()}")
                 }
             } catch (e: Exception) {
-                _error.value = "데이터를 가져오는 중 오류가 발생했습니다: ${e.localizedMessage}"
+                _updateResult.postValue("오류 발생: ${e.message}")
             }
         }
     }
