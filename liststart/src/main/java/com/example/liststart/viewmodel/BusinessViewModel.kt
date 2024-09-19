@@ -74,6 +74,34 @@ class BusinessViewModel(private val businessDataSource: BusinessDataSource) : Vi
         }
     }
 
+    // 비즈니스를 수정하는 함수
+    fun updateBusiness(business: Business) {
+        viewModelScope.launch {
+            try {
+                val response = businessDataSource.updateBusiness(business.bno!!, business)
+                if (response.isSuccessful) {
+                    // 서버에서 반환된 업데이트된 비즈니스 객체를 가져옴
+                    val updatedBusiness = response.body()
+
+                    // businessItems에서 bno 값이 일치하는 아이템을 찾아 업데이트
+                    updatedBusiness?.let { updatedItem ->
+                        val index = businessItems.indexOfFirst { it.bno == updatedItem.bno }
+                        if (index != -1) {
+                            businessItems[index] = updatedItem
+                        }
+
+                        // 업데이트된 리스트를 반영
+                        _businessList.value = businessItems
+                    }
+                } else {
+                    _error.value = "비즈니스를 수정하는 데 실패했습니다: ${response.message()}"
+                }
+            } catch (e: Exception) {
+                _error.value = "비즈니스 수정 중 오류가 발생했습니다: ${e.localizedMessage}"
+            }
+        }
+    }
+
     // 비즈니스 리스트 필터링 처리
     fun filterBusiness(query: String) {
         _businessList.value = if (query.isBlank()) {

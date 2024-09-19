@@ -7,4 +7,5 @@ interface BusinessDataSource {
     suspend fun getBusinessList(): Response<List<Business>>
     suspend fun addBusiness(business: Business): Response<Business>
     suspend fun deleteBusinesses(ids: List<Long>): Response<Unit>
+    suspend fun updateBusiness(bno: Long, business: Business): Response<Business>
 }

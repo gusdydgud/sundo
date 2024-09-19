@@ -90,6 +90,7 @@ class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.Con
     private var titleCounter: String = "" // 제목 카운트용 문자열
     private var data: Business? = null// 선택된 사업
     private var title: String? = null// 선택된 사업
+    private var bno: Long? = null// 선택된 사업
     private var backPressedTime: Long = 0 // 뒤로가기 버튼을 마지막으로 누른 시간
 
     // 지도 상의 마커와 폴리곤 관리
@@ -171,6 +172,7 @@ class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.Con
         })
         //현용 뒤로가기2번눌러서 앱종료
 
+    // 수민
         // 인텐트로 전달된 제목 데이터 받기
         data = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             // Android 13 (Tiramisu) 이상
@@ -183,7 +185,6 @@ class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.Con
 
         title = data?.title ?: "이름없음"
 
-        // 수민
         // DataSourceProvider에서 싱글톤 인스턴스를 가져옴
         val businessViewModelFactory = DataSourceProvider.businessViewModelFactory
         businessViewModel = ViewModelProvider(this, businessViewModelFactory).get(BusinessViewModel::class.java)
@@ -250,7 +251,7 @@ class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.Con
         } else {
             Toast.makeText(this, "네트워크 연결이 필요합니다.", Toast.LENGTH_SHORT).show()
         }
-        // 수민
+    // 수민
 
         // UI 요소 초기화
         centerEditText = findViewById(R.id.centerEditText)
@@ -364,12 +365,16 @@ class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.Con
             }
         }
 
+    //수민
         // 수정 버튼 클릭 이벤트 설정
         rightButton = findViewById(R.id.rightButton)
         rightButton.setOnClickListener {
             val newTitle = centerEditText.text.toString()
+            data!!.title = newTitle
+            businessViewModel.updateBusiness(data!!)
             Toast.makeText(this, "수정된 제목: $newTitle", Toast.LENGTH_SHORT).show()
         }
+    //수민
 
         // GPS 위치로 이동 버튼 설정
         leftButton = findViewById(R.id.leftButton)
@@ -377,7 +382,7 @@ class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.Con
             moveToCurrentLocation()
         }
 
-        // 수민
+    // 수민
         // 사업지 목록 버튼 이벤트
         getListButton = findViewById(R.id.getListButton)
         getListButton.setOnClickListener {
@@ -389,7 +394,7 @@ class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.Con
                 animateRecyclerView(false)
             }
         }
-        // 수민
+    // 수민
 
         //AR camera
 //        val cameraBtn = findViewById<LinearLayout>(R.id.cameraBtn)
