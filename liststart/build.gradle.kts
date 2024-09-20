@@ -40,7 +40,14 @@ android {
 }
 
 dependencies {
+    implementation("com.google.maps.android:android-maps-utils:2.3.0")//
 
+    implementation ("org.locationtech.proj4j:proj4j:1.1.0")
+
+    implementation ("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.6.0")
+
+
+    // 기존에 있던 라이브러리들 아래에 추가
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.appcompat)
     implementation(libs.material)
@@ -55,7 +62,7 @@ dependencies {
     implementation(libs.androidx.lifecycle.livedata.ktx)
     implementation(libs.androidx.activity.ktx)
 
-    //test
+    // 테스트 라이브러리
     testImplementation(libs.mockwebserver)
     testImplementation(libs.junit)
 }

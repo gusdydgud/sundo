@@ -1,6 +1,7 @@
 package com.example.liststart
 
 import android.animation.Animator
+import android.animation.AnimatorListenerAdapter
 import android.animation.ObjectAnimator
 import android.content.Context
 import android.content.Intent
@@ -12,6 +13,9 @@ import android.os.Build
 import android.os.Bundle
 import android.util.Log
 
+import com.google.maps.android.data.geojson.GeoJsonLayer
+
+
 import android.view.LayoutInflater
 import android.view.MotionEvent
 
@@ -22,10 +26,12 @@ import android.view.animation.AnimationUtils
 import android.view.inputmethod.InputMethodManager
 import android.widget.AdapterView
 import android.widget.ArrayAdapter
+import android.widget.CheckBox
 import android.widget.EditText
 import android.widget.ImageButton
 import android.widget.ImageView
 import android.widget.LinearLayout
+import android.widget.ScrollView
 import android.widget.Spinner
 import android.widget.TabHost
 import android.widget.TextView
@@ -54,23 +60,44 @@ import com.google.android.gms.maps.OnMapReadyCallback
 import com.google.android.gms.maps.SupportMapFragment
 import com.google.android.gms.maps.model.BitmapDescriptorFactory
 import com.google.android.gms.maps.model.LatLng
+import com.google.android.gms.maps.model.LatLngBounds
 import com.google.android.gms.maps.model.Marker
 import com.google.android.gms.maps.model.MarkerOptions
 import com.google.android.gms.maps.model.Polygon
 import com.google.android.gms.maps.model.PolygonOptions
 import com.google.android.gms.tasks.OnSuccessListener
+import com.google.maps.android.data.geojson.GeoJsonPolygon
+import com.google.maps.android.data.geojson.GeoJsonPolygonStyle
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 //import com.unity3d.player.UnityPlayerActivity
 import org.json.JSONObject
+import org.locationtech.proj4j.CRSFactory
+import org.locationtech.proj4j.CoordinateReferenceSystem
+import org.locationtech.proj4j.CoordinateTransformFactory
+import org.locationtech.proj4j.ProjCoordinate
 import java.io.BufferedReader
+import java.io.InputStream
 import java.io.InputStreamReader
 import java.net.HttpURLConnection
 import java.net.URL
+import java.nio.charset.Charset
 
 class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.ConnectionCallbacks, GoogleApiClient.OnConnectionFailedListener {
 
     // Google Map 관련 변수
     private var googleMap: GoogleMap? = null
     private var currentCenter: LatLng? = null // 현재 지도의 중심 좌표
+    private var geoJsonLayer: GeoJsonLayer? = null
+
+    private var isRegulatoryAreaVisible: Boolean = false
+    private var geoJsonLayers = mutableMapOf<String, GeoJsonLayer>()
+
+    //체크박스 규제구역
+    private lateinit var checkBoxLayout: LinearLayout
+    private var isCheckBoxVisible = false
 
     // UI 요소
     private lateinit var centerMarkerPreview: ImageView // 화면 가운데 미리보기 마커
@@ -107,7 +134,8 @@ class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.Con
     private lateinit var businessAdapter: BusinessAdapter // 비즈니스 데이터용 RecyclerView 어댑터
     private lateinit var businessViewModel: BusinessViewModel // 비즈니스 ViewModel
     private lateinit var markerViewModel: MarkerViewModel // 마커 ViewModel
-
+    // Coroutine Scope 설정
+    private val geoJsonScope = CoroutineScope(Dispatchers.IO)
     // 규제구역 내에 있는지 확인하는 함수
     private fun isLocationInRestrictedArea(lat: Double, long: Double): Boolean {
         for (polygon in polygonList) {
@@ -297,6 +325,124 @@ class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.Con
                 loadDevelopmentRestrictedAreas() // 규제구역 표시
             }
         }
+
+        //진석 체크박스
+        checkBoxLayout = findViewById(R.id.checkBoxLayout)
+
+        val saveButton = findViewById<LinearLayout>(R.id.saveButton) // 저장 하기 버튼
+        saveButton.setOnClickListener {
+            toggleCheckBoxLayout() // 저장하기 버튼을 클릭하면 체크박스를 표시/숨깁니다.
+        }
+        val checkBox1 = findViewById<CheckBox>(R.id.checkBox1)
+        val checkBox2 = findViewById<CheckBox>(R.id.checkBox2)
+        val checkBox3 = findViewById<CheckBox>(R.id.checkBox3)
+        val checkBox4 = findViewById<CheckBox>(R.id.checkBox4)
+        val checkBox5 = findViewById<CheckBox>(R.id.checkBox5)
+        val checkBox6 = findViewById<CheckBox>(R.id.checkBox6)
+        val checkBox7 = findViewById<CheckBox>(R.id.checkBox7)
+        val checkBox8 = findViewById<CheckBox>(R.id.checkBox8)
+        val checkBox9 = findViewById<CheckBox>(R.id.checkBox9)
+
+        //개발제한구역
+        checkBox1.setOnCheckedChangeListener { _, isChecked ->
+            if (isChecked) {
+                // 개발제한구역 표시
+                loadDevelopmentRestrictedAreas()
+            } else {
+                // 개발제한구역 숨기기
+                hideRestrictedAreas()
+            }
+        }
+
+        // 2. 보호대상 해양생물 체크박스
+        checkBox2.setOnCheckedChangeListener { _, isChecked ->
+            googleMap?.let { map ->
+                if (isChecked) {
+                    loadGeoJsonFile(map, this, R.raw.intb_anml_a, "intb_anml_a", Color.parseColor("#80FF0000")) // 빨간색
+                } else {
+                    hideGeoJsonLayer("intb_anml_a")
+                }
+            }
+        }
+
+// 3. 해양 생물 보호 대상 체크박스
+        checkBox3.setOnCheckedChangeListener { _, isChecked ->
+            googleMap?.let { map ->
+                if (isChecked) {
+                    loadGeoJsonFile(map, this, R.raw.mammalia, "mammalia", Color.parseColor("#80FFA500")) // 주황색
+                } else {
+                    hideGeoJsonLayer("mammalia")
+                }
+            }
+        }
+
+// 4. 수면 보호구역 체크박스
+        checkBox4.setOnCheckedChangeListener { _, isChecked ->
+            googleMap?.let { map ->
+                if (isChecked) {
+                    loadGeoJsonFile(map, this, R.raw.prtwt_surface, "prtwt_surface", Color.parseColor("#8000FF00")) // 녹색
+                } else {
+                    hideGeoJsonLayer("prtwt_surface")
+                }
+            }
+        }
+
+// 5. 담수 보호구역 체크박스
+        checkBox5.setOnCheckedChangeListener { _, isChecked ->
+            googleMap?.let { map ->
+                if (isChecked) {
+                    loadGeoJsonFile(map, this, R.raw.pwtrs_a, "pwtrs_a", Color.parseColor("#800000FF")) // 파란색
+                } else {
+                    hideGeoJsonLayer("pwtrs_a")
+                }
+            }
+        }
+
+// 6. 파충류 보호구역 체크박스
+        checkBox6.setOnCheckedChangeListener { _, isChecked ->
+            googleMap?.let { map ->
+                if (isChecked) {
+                    loadGeoJsonFile(map, this, R.raw.reptile, "reptile", Color.parseColor("#80FFFF00")) // 노란색
+                } else {
+                    hideGeoJsonLayer("reptile")
+                }
+            }
+        }
+
+// 7. 해초류 보호구역 체크박스
+        checkBox7.setOnCheckedChangeListener { _, isChecked ->
+            googleMap?.let { map ->
+                if (isChecked) {
+                    loadGeoJsonFile(map, this, R.raw.seaweed, "seaweed", Color.parseColor("#80800080")) // 보라색
+                } else {
+                    hideGeoJsonLayer("seaweed")
+                }
+            }
+        }
+
+// 8. 해양 생태계 보호구역 체크박스
+        checkBox8.setOnCheckedChangeListener { _, isChecked ->
+            googleMap?.let { map ->
+                if (isChecked) {
+                    loadGeoJsonFile(map, this, R.raw.wld_lvb_pzn_a, "wld_lvb_pzn_a", Color.parseColor("#8000FFFF")) // 청록색
+                } else {
+                    hideGeoJsonLayer("wld_lvb_pzn_a")
+                }
+            }
+        }
+
+// 9. 어류 보호구역 체크박스
+        checkBox9.setOnCheckedChangeListener { _, isChecked ->
+            googleMap?.let { map ->
+                if (isChecked) {
+                    loadGeoJsonFile(map, this, R.raw.fish, "fish", Color.parseColor("#80FF4500")) // 오렌지색
+                } else {
+                    hideGeoJsonLayer("fish")
+                }
+            }
+        }
+
+
 
         // 중앙 미리보기 마커와 위치 선택 텍스트뷰 설정
         centerMarkerPreview = findViewById(R.id.centerMarkerPreview)
@@ -541,7 +687,7 @@ class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.Con
         }
         return super.dispatchTouchEvent(ev)
     }
-
+    //진석
     private fun showCustomDialog(marker: Marker) {
         val dialogView = LayoutInflater.from(this).inflate(R.layout.dialog_markinfo, null)
 
@@ -708,10 +854,6 @@ class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.Con
 
 
 
-
-
-
-
         // 삭제하기 클릭 이벤트
         dialogView.findViewById<TextView>(R.id.tv_delete).setOnClickListener {
             marker.remove()
@@ -724,29 +866,83 @@ class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.Con
     // 규제구역 로드 함수 수정: 마커 위치를 확인하고 규제구역 내에 있는 마커는 삭제
 
     private fun loadDevelopmentRestrictedAreas() {
-        // 여기서 원래 사용하고 있던 API의 URL을 설정합니다.
-        val apiKey = "05C26CB0-9905-39AC-8E59-423EE652CA06"  // 사용자의 API 키 입력
-        val url = "https://api.vworld.kr/req/data?service=data&request=GetFeature&data=LT_C_UD801&key=$apiKey&geomFilter=BOX(${long - 1},${lat - 1},${long + 1},${lat + 1})&format=json&size=100"
+        // 데이터베이스에서 첫 번째 좌표 가져오기
+        markerViewModel.markerList.observe(this) { markerList ->
+            if (markerList.isNotEmpty()) {
+                // 첫 번째 마커의 좌표를 가져옴
+                val firstMarker = markerList.first()
+                val latitude = firstMarker.latitude
+                val longitude = firstMarker.longitude
 
-        DownloadTask().execute(url)
+                // 규제구역 API 호출
+                val apiKey = "05C26CB0-9905-39AC-8E59-423EE652CA06"
+                val url = "https://api.vworld.kr/req/data?service=data&request=GetFeature&data=LT_C_UD801&key=$apiKey&geomFilter=BOX(${longitude - 1},${latitude - 1},${longitude + 1},${latitude + 1})&format=json&size=100"
 
-        // 규제구역 로드 후, 마커 검사 및 제거
-        for (marker in markersList) {
-            val markerPosition = marker.position
-            if (isLocationInRestrictedArea(markerPosition.latitude, markerPosition.longitude)) {
-                marker.remove() // 마커 제거
-                Toast.makeText(this, "마커가 규제구역 내에 있어 삭제되었습니다.", Toast.LENGTH_SHORT).show()
+                DownloadTask().execute(url)
+
+                // 지도에서 마커가 규제구역 내에 있는지 확인하고, 필요한 경우 마커를 제거
+                markersList.forEach { marker ->
+                    val markerPosition = marker.position
+                    if (isLocationInRestrictedArea(markerPosition.latitude, markerPosition.longitude)) {
+                        marker.remove()
+                        Toast.makeText(this, "마커가 규제구역 내에 있어 삭제되었습니다.", Toast.LENGTH_SHORT).show()
+                    }
+                }
+            } else {
+                Toast.makeText(this, "데이터베이스에 좌표가 없습니다.", Toast.LENGTH_SHORT).show()
             }
         }
-
-        // 리스트에서 제거된 마커들 갱신
-        markersList.removeAll { isLocationInRestrictedArea(it.position.latitude, it.position.longitude) }
     }
+
 
     private fun hideRestrictedAreas() {
         polygonList.forEach { it.remove() }
         polygonList.clear()
         isRestrictedAreaVisible = false
+    }
+
+fun loadGeoJsonFile(googleMap: GoogleMap, context: Context, geoJsonResId: Int, layerKey: String, color: Int) {
+    CoroutineScope(Dispatchers.Main).launch {
+        withContext(Dispatchers.IO) {
+            try {
+                val inputStream = context.resources.openRawResource(geoJsonResId)
+                val jsonStr = inputStream.bufferedReader().use { it.readText() }
+                val jsonObject = JSONObject(jsonStr)
+                val geoJsonLayer = GeoJsonLayer(googleMap, jsonObject)
+
+                // GeoJsonLayer를 저장해 둡니다.
+                geoJsonLayers[layerKey] = geoJsonLayer
+
+                withContext(Dispatchers.Main) {
+                    geoJsonLayer.features.forEach { feature ->
+                        val style = GeoJsonPolygonStyle()
+                        style.fillColor = color
+                        feature.polygonStyle = style
+                    }
+                    geoJsonLayer.addLayerToMap()
+
+                }
+            } catch (e: Exception) {
+                Log.e("GeoJson", "GeoJSON 파일을 불러오는 중 오류 발생", e)
+            }
+        }
+    }
+
+    // 작업 완료 후 토스트 메시지 표시
+        Toast.makeText(context, "GeoJSON 파일이 성공적으로 추가되었습니다.", Toast.LENGTH_SHORT).show()
+        isRegulatoryAreaVisible = true
+
+    }
+
+
+    fun hideGeoJsonLayer(layerKey: String) {
+        geoJsonLayers[layerKey]?.let { layer ->
+            layer.removeLayerFromMap() // 해당 레이어를 지도에서 제거
+            geoJsonLayers.remove(layerKey) // 맵에서 레이어를 삭제
+            Toast.makeText(this, "$layerKey 레이어가 제거되었습니다.", Toast.LENGTH_SHORT).show()
+        } ?: run {
+            Log.d("GeoJson", "$layerKey 레이어를 찾을 수 없습니다.")
+        }
     }
 
     inner class DownloadTask : AsyncTask<String, Void, String>() {
@@ -823,7 +1019,6 @@ class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.Con
         }
     }
 
-
     // 규제구역 내의 마커를 제거하는 함수
     private fun removeMarkersInRestrictedAreas() {
         val markersToRemove = markersList.filter { marker ->
@@ -850,6 +1045,50 @@ class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.Con
         val seconds = (((decimal - degrees) * 60) - minutes) * 60
         return Triple(degrees.toDouble(), minutes.toDouble(), seconds)
     }
+    private fun toggleCheckBoxLayout() {
+        // 애니메이션 중 터치 이벤트를 차단하는 플래그
+        var isAnimating = false
+
+        // 현재 체크박스 레이아웃이 보이는지 상태에 따라 이동할 위치 설정
+        val targetY = if (isCheckBoxVisible) checkBoxLayout.height.toFloat() else 0f
+
+        // 애니메이션 시작
+        ObjectAnimator.ofFloat(checkBoxLayout, "translationY", targetY).apply {
+            duration = 500 // 애니메이션 지속 시간
+
+            // 애니메이션 리스너 추가
+            addListener(object : AnimatorListenerAdapter() {
+                override fun onAnimationStart(animation: Animator) {
+                    // 애니메이션이 시작되면 터치 이벤트를 차단
+                    isAnimating = true
+                    // 체크박스 레이아웃이 보이지 않는 상태에서 시작할 때, 레이아웃을 보이게 설정
+                    if (!isCheckBoxVisible) {
+                        checkBoxLayout.visibility = View.VISIBLE
+                    }
+                }
+
+                override fun onAnimationEnd(animation: Animator) {
+                    // 애니메이션이 끝난 후 터치 이벤트를 다시 활성화
+                    isAnimating = false
+                    // 체크박스 레이아웃이 보이는 상태에서 애니메이션이 끝나면 숨김 처리
+                    if (isCheckBoxVisible) {
+                        checkBoxLayout.visibility = View.GONE
+                    }
+                    // 애니메이션이 끝난 후, 상태를 반전시킴
+                    isCheckBoxVisible = !isCheckBoxVisible
+                }
+            })
+            start()
+        }
+
+        // 애니메이션 중 터치 이벤트를 차단하는 로직
+        checkBoxLayout.setOnTouchListener { _, _ -> isAnimating }
+    }
+
+
+
+
+//진석
 
     // 수민
     // 애니메이션 설정 함수
@@ -912,5 +1151,6 @@ class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.Con
         //addMarkerAtLocation(data.lat, data.long, data.title)
     }
     // 수민
+
 
 }

@@ -1,6 +1,14 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="Encoding" defaultCharsetForPropertiesFiles="UTF-8">
+    <file url="file://$PROJECT_DIR$/liststart/src/main/res/raw/output_algae.geojson" charset="x-windows-949" />
+    <file url="file://$PROJECT_DIR$/liststart/src/main/res/raw/output_file.geojson" charset="x-windows-949" />
+    <file url="file://$PROJECT_DIR$/liststart/src/main/res/raw/output_fish.geojson" charset="x-windows-949" />
+    <file url="file://$PROJECT_DIR$/liststart/src/main/res/raw/output_mammals.geojson" charset="x-windows-949" />
+    <file url="file://$PROJECT_DIR$/liststart/src/main/res/raw/output_protected_water_surface.geojson" charset="x-windows-949" />
+    <file url="file://$PROJECT_DIR$/liststart/src/main/res/raw/output_protected_water_zone.geojson" charset="x-windows-949" />
+    <file url="file://$PROJECT_DIR$/liststart/src/main/res/raw/output_reptiles.geojson" charset="x-windows-949" />
+    <file url="file://$PROJECT_DIR$/liststart/src/main/res/raw/output_wildlife_protection.geojson" charset="x-windows-949" />
     <file url="PROJECT" charset="UTF-8" />
   </component>
 </project>
