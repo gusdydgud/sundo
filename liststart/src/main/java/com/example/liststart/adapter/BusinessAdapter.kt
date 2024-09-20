@@ -1,5 +1,6 @@
 package com.example.liststart.adapter
 
+import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -11,6 +12,7 @@ import com.example.liststart.R
 import com.example.liststart.model.Business
 
 class BusinessAdapter(
+    private var isGisActivity: Boolean,
     private var isVisible: Boolean,
     private val onItemClick: (Business) -> Unit,
     private val onCheckBoxClick: (Business) -> Unit
@@ -46,13 +48,19 @@ class BusinessAdapter(
 
         // 아이템 클릭 처리
         holder.itemRoot.setOnClickListener {
-            if (!isVisible) onItemClick(item) else onCheckBoxClick(item)
+            if (!isVisible) {
+                onItemClick(item)
+            } else {
+                onCheckBoxClick(item)
+            }
         }
 
         // 체크박스 클릭 처리
         holder.checkBox.setOnClickListener {
-            item.isChecked = !item.isChecked // 체크 상태 토글
-            notifyItemChanged(position) // UI 업데이트
+            if(isGisActivity) {
+                item.isChecked = !item.isChecked // 체크 상태 토글
+                notifyItemChanged(position) // UI 업데이트
+            }
             onCheckBoxClick(item) // 체크박스 클릭 이벤트 처리
         }
     }

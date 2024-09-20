@@ -4,7 +4,6 @@ import android.animation.Animator
 import android.animation.AnimatorListenerAdapter
 import android.animation.ObjectAnimator
 import android.content.Context
-import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Color
 import android.location.Location
@@ -12,17 +11,10 @@ import android.os.AsyncTask
 import android.os.Build
 import android.os.Bundle
 import android.util.Log
-
 import com.google.maps.android.data.geojson.GeoJsonLayer
-
-
 import android.view.LayoutInflater
 import android.view.MotionEvent
-
 import android.view.View
-import android.view.ViewGroup
-import android.view.animation.Animation
-import android.view.animation.AnimationUtils
 import android.view.inputmethod.InputMethodManager
 import android.widget.AdapterView
 import android.widget.ArrayAdapter
@@ -31,12 +23,10 @@ import android.widget.EditText
 import android.widget.ImageButton
 import android.widget.ImageView
 import android.widget.LinearLayout
-import android.widget.ScrollView
 import android.widget.Spinner
 import android.widget.TabHost
 import android.widget.TextView
 import android.widget.Toast
-import androidx.activity.OnBackPressedCallback
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
@@ -60,7 +50,6 @@ import com.google.android.gms.maps.OnMapReadyCallback
 import com.google.android.gms.maps.SupportMapFragment
 import com.google.android.gms.maps.model.BitmapDescriptorFactory
 import com.google.android.gms.maps.model.LatLng
-import com.google.android.gms.maps.model.LatLngBounds
 import com.google.android.gms.maps.model.Marker
 import com.google.android.gms.maps.model.MarkerOptions
 import com.google.android.gms.maps.model.Polygon
@@ -72,18 +61,12 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-//import com.unity3d.player.UnityPlayerActivity
 import org.json.JSONObject
-import org.locationtech.proj4j.CRSFactory
-import org.locationtech.proj4j.CoordinateReferenceSystem
-import org.locationtech.proj4j.CoordinateTransformFactory
-import org.locationtech.proj4j.ProjCoordinate
 import java.io.BufferedReader
-import java.io.InputStream
 import java.io.InputStreamReader
 import java.net.HttpURLConnection
 import java.net.URL
-import java.nio.charset.Charset
+//import com.unity3d.player.UnityPlayerActivity
 
 class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.ConnectionCallbacks, GoogleApiClient.OnConnectionFailedListener {
 
@@ -114,11 +97,8 @@ class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.Con
     private var isRestrictedAreaVisible = false // 규제 구역 표시 여부
     private var isRecyclerViewVisible = false // RecyclerView 가시성 상태
     private var markerCounter = 1 // 마커의 카운트
-    private var titleCounter: String = "" // 제목 카운트용 문자열
     private var data: Business? = null// 선택된 사업
     private var title: String? = null// 선택된 사업
-    private var bno: Long? = null// 선택된 사업
-    private var backPressedTime: Long = 0 // 뒤로가기 버튼을 마지막으로 누른 시간
 
     // 지도 상의 마커와 폴리곤 관리
     private var markersList: MutableList<Marker> = mutableListOf() // 지도에 추가된 마커 리스트
@@ -134,8 +114,6 @@ class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.Con
     private lateinit var businessAdapter: BusinessAdapter // 비즈니스 데이터용 RecyclerView 어댑터
     private lateinit var businessViewModel: BusinessViewModel // 비즈니스 ViewModel
     private lateinit var markerViewModel: MarkerViewModel // 마커 ViewModel
-    // Coroutine Scope 설정
-    private val geoJsonScope = CoroutineScope(Dispatchers.IO)
 
 // 수민
     // 사업별로 색상을 매핑할 Map
@@ -230,26 +208,6 @@ class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.Con
 
         // 캐시 초기화
         markerCache.clear()
-//        val prepage = findViewById<ImageButton>(R.id.prepage)
-
-//        //현용 뒤로가기2번눌러서 앱종료
-//        onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
-//            override fun handleOnBackPressed() {
-//                if (System.currentTimeMillis() > backPressedTime + 2000) {
-//                    backPressedTime = System.currentTimeMillis()
-//                    Toast.makeText(this@GisActivity, "뒤로가기를 한 번 더 누르면 앱이 종료됩니다", Toast.LENGTH_SHORT).show()
-//                } else {
-//                    finishAffinity()
-//                    System.exit(0)
-//                }
-//            }
-//        })
-
-//        // 버튼 클릭 리스너 설정
-//        prepage.setOnClickListener {
-//            // 현재 Activity 종료
-//            finish()
-//        }
 
         // 인텐트로 전달된 제목 데이터 받기
         data = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -279,10 +237,10 @@ class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.Con
 
         // 어댑터 초기화
         businessAdapter = BusinessAdapter(
+            true,
             isVisible = true,
-            onItemClick = { item -> handleClick(item) },
-            onCheckBoxClick = { item ->
-                item.bno?.let { bno ->
+            onItemClick = { item -> Log.d("rootClick", "onCreate: $item") },  // 아이템 클릭 이벤트 처리
+            onCheckBoxClick = { item -> item.bno?.let { bno ->
                     if (item.isChecked) {
                         // 체크박스가 체크되었을 때 마커 추가
                         markerViewModel.loadMarkerList(bno)
@@ -291,7 +249,7 @@ class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.Con
                         removeMarkersForBusiness(bno)
                     }
                 }
-            }
+            }  // 체크박스 클릭 이벤트 처리
         )
 
         recyclerView.adapter = businessAdapter
@@ -536,8 +494,6 @@ class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.Con
             }
         }
 
-
-
         // 중앙 미리보기 마커와 위치 선택 텍스트뷰 설정
         centerMarkerPreview = findViewById(R.id.centerMarkerPreview)
         selectLocationTextView = findViewById(R.id.selectLocationTextView)
@@ -549,27 +505,14 @@ class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.Con
         selctlotiLayout.setOnClickListener {
             if (isRecyclerViewVisible) {
                 animateRecyclerView(false)
-                val listener = object : Animator.AnimatorListener {
-                    override fun onAnimationStart(animation: Animator) {}
-                    override fun onAnimationEnd(animation: Animator) {
-                        isMarkerPreviewVisible = !isMarkerPreviewVisible
-                        centerMarkerPreview.visibility = if (isMarkerPreviewVisible) View.VISIBLE else View.GONE
-                        selectLocationTextView.visibility = if (isMarkerPreviewVisible) View.VISIBLE else View.GONE
-                    }
-
-                    override fun onAnimationCancel(animation: Animator) {}
-                    override fun onAnimationRepeat(animation: Animator) {}
-                }
-                ObjectAnimator.ofFloat(recyclerLayout, "translationY", recyclerLayout.height.toFloat()).apply {
-                    duration = 500
-                    addListener(listener)
-                }.start()
-
-            } else {
-                isMarkerPreviewVisible = !isMarkerPreviewVisible
-                centerMarkerPreview.visibility = if (isMarkerPreviewVisible) View.VISIBLE else View.GONE
-                selectLocationTextView.visibility = if (isMarkerPreviewVisible) View.VISIBLE else View.GONE
+                isRecyclerViewVisible = !isRecyclerViewVisible
             }
+            if(isCheckBoxVisible) {
+                toggleCheckBoxLayout()
+            }
+            isMarkerPreviewVisible = !isMarkerPreviewVisible
+            centerMarkerPreview.visibility = if (isMarkerPreviewVisible) View.VISIBLE else View.GONE
+            selectLocationTextView.visibility = if (isMarkerPreviewVisible) View.VISIBLE else View.GONE
         }
 
         // '지정하기' 버튼 클릭 이벤트 설정
@@ -619,6 +562,9 @@ class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.Con
                 isMarkerPreviewVisible = !isMarkerPreviewVisible
                 centerMarkerPreview.visibility = if (isMarkerPreviewVisible) View.VISIBLE else View.GONE
                 selectLocationTextView.visibility = if (isMarkerPreviewVisible) View.VISIBLE else View.GONE
+            }
+            if(isCheckBoxVisible) {
+                toggleCheckBoxLayout()
             }
             if (!isRecyclerViewVisible) {
                 animateRecyclerView(true)
@@ -1115,56 +1061,56 @@ class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.Con
         isRestrictedAreaVisible = false
     }
 
-fun loadGeoJsonFile(googleMap: GoogleMap, context: Context, geoJsonResId: Int, layerKey: String, color: Int) {
-    CoroutineScope(Dispatchers.Main).launch {
-        withContext(Dispatchers.IO) {
-            try {
-                val inputStream = context.resources.openRawResource(geoJsonResId)
-                val jsonStr = inputStream.bufferedReader().use { it.readText() }
-                val jsonObject = JSONObject(jsonStr)
-                val geoJsonLayer = GeoJsonLayer(googleMap, jsonObject)
+    private fun loadGeoJsonFile(googleMap: GoogleMap, context: Context, geoJsonResId: Int, layerKey: String, color: Int) {
+        CoroutineScope(Dispatchers.Main).launch {
+            withContext(Dispatchers.IO) {
+                try {
+                    val inputStream = context.resources.openRawResource(geoJsonResId)
+                    val jsonStr = inputStream.bufferedReader().use { it.readText() }
+                    val jsonObject = JSONObject(jsonStr)
+                    val geoJsonLayer = GeoJsonLayer(googleMap, jsonObject)
 
-                // GeoJsonLayer를 저장해 둡니다.
-                geoJsonLayers[layerKey] = geoJsonLayer
+                    // GeoJsonLayer를 저장해 둡니다.
+                    geoJsonLayers[layerKey] = geoJsonLayer
 
-                withContext(Dispatchers.Main) {
-                    geoJsonLayer.features.forEach { feature ->
-                        val style = GeoJsonPolygonStyle()
-                        style.fillColor = color
-                        style.strokeColor = Color.BLACK // 테두리 색상 (검은색)
-                        style.strokeWidth = 1f // 테두리 두께 (가장 얇게)
-                        feature.polygonStyle = style
-                        // 규제 구역 폴리곤을 polygonList에 추가
-// GeoJsonPolygon에 대해 polygonList에 추가
-                        val geometry = feature.geometry
-                        if (geometry is GeoJsonPolygon) {
-                            val polygonOptions = PolygonOptions()
+                    withContext(Dispatchers.Main) {
+                        geoJsonLayer.features.forEach { feature ->
+                            val style = GeoJsonPolygonStyle()
+                            style.fillColor = color
+                            style.strokeColor = Color.BLACK // 테두리 색상 (검은색)
+                            style.strokeWidth = 1f // 테두리 두께 (가장 얇게)
+                            feature.polygonStyle = style
+                            // 규제 구역 폴리곤을 polygonList에 추가
+    // GeoJsonPolygon에 대해 polygonList에 추가
+                            val geometry = feature.geometry
+                            if (geometry is GeoJsonPolygon) {
+                                val polygonOptions = PolygonOptions()
 
-                            geometry.outerBoundaryCoordinates.forEach { latLng ->
-                                polygonOptions.add(latLng)
+                                geometry.outerBoundaryCoordinates.forEach { latLng ->
+                                    polygonOptions.add(latLng)
+                                }
+
+                                val polygon = googleMap?.addPolygon(polygonOptions)
+                                polygon?.let { polygonList.add(it)
+                                }
+                            } else {
+
                             }
 
-                            val polygon = googleMap?.addPolygon(polygonOptions)
-                            polygon?.let { polygonList.add(it)
-                            }
-                        } else {
-
+                        }
+                        geoJsonLayer.addLayerToMap()
+                        // 마커 클릭 리스너를 다시 설정
+                        googleMap?.setOnMarkerClickListener { marker ->
+                            showCustomDialog(marker)
+                            true
                         }
 
                     }
-                    geoJsonLayer.addLayerToMap()
-                    // 마커 클릭 리스너를 다시 설정
-                    googleMap?.setOnMarkerClickListener { marker ->
-                        showCustomDialog(marker)
-                        true
-                    }
-
+                } catch (e: Exception) {
+                    Log.e("GeoJson", "GeoJSON 파일을 불러오는 중 오류 발생", e)
                 }
-            } catch (e: Exception) {
-                Log.e("GeoJson", "GeoJSON 파일을 불러오는 중 오류 발생", e)
             }
         }
-    }
 
     // 작업 완료 후 토스트 메시지 표시
         Toast.makeText(context, "GeoJSON 파일이 성공적으로 추가되었습니다.", Toast.LENGTH_SHORT).show()
@@ -1172,8 +1118,7 @@ fun loadGeoJsonFile(googleMap: GoogleMap, context: Context, geoJsonResId: Int, l
 
     }
 
-
-    fun hideGeoJsonLayer(layerKey: String) {
+    private fun hideGeoJsonLayer(layerKey: String) {
         geoJsonLayers[layerKey]?.let { layer ->
             layer.removeLayerFromMap() // 해당 레이어를 지도에서 제거
             geoJsonLayers.remove(layerKey) // 맵에서 레이어를 삭제
@@ -1277,13 +1222,24 @@ fun loadGeoJsonFile(googleMap: GoogleMap, context: Context, geoJsonResId: Int, l
     private fun dmsToDecimal(degrees: Double, minutes: Double, seconds: Double): Double {
         return degrees + (minutes / 60) + (seconds / 3600)
     }
+
     private fun decimalToDMS(decimal: Double): Triple<Double, Double, Double> {
         val degrees = decimal.toInt()
         val minutes = ((decimal - degrees) * 60).toInt()
         val seconds = (((decimal - degrees) * 60) - minutes) * 60
         return Triple(degrees.toDouble(), minutes.toDouble(), seconds)
     }
+
     private fun toggleCheckBoxLayout() {
+        if(isMarkerPreviewVisible) {
+            isMarkerPreviewVisible = !isMarkerPreviewVisible
+            centerMarkerPreview.visibility = if (isMarkerPreviewVisible) View.VISIBLE else View.GONE
+            selectLocationTextView.visibility = if (isMarkerPreviewVisible) View.VISIBLE else View.GONE
+        }
+        if (isRecyclerViewVisible) {
+            animateRecyclerView(false)
+            isRecyclerViewVisible = !isRecyclerViewVisible
+        }
         // 애니메이션 중 터치 이벤트를 차단하는 플래그
         var isAnimating = false
 
@@ -1322,13 +1278,9 @@ fun loadGeoJsonFile(googleMap: GoogleMap, context: Context, geoJsonResId: Int, l
         // 애니메이션 중 터치 이벤트를 차단하는 로직
         checkBoxLayout.setOnTouchListener { _, _ -> isAnimating }
     }
-
-
-
-
 //진석
 
-    // 수민
+// 수민
     // 애니메이션 설정 함수
     private fun animateRecyclerView(show: Boolean) {
         // 목표 translationY 값 설정
@@ -1377,18 +1329,8 @@ fun loadGeoJsonFile(googleMap: GoogleMap, context: Context, geoJsonResId: Int, l
 
         animator.start() // 애니메이션 시작
     }
-    // 목록 클릭 이벤트
-    private fun handleClick(data: Business) {
-        Log.d(TAG, "Clicked item: ${data.title}")
+// 수민
 
-        // 선택한 사업지의 좌표로 이동
-        val latLng = LatLng(91.0, 181.0)
-        googleMap?.moveCamera(CameraUpdateFactory.newLatLngZoom(latLng, 15f))
-
-        // 선택한 위치에 마커 추가
-        //addMarkerAtLocation(data.lat, data.long, data.title)
-    }
-    // 수민
     private fun saveMarkerToServer(marker: com.example.liststart.model.Marker) {
         markerViewModel.addMarker(
             marker,
@@ -1429,11 +1371,5 @@ fun loadGeoJsonFile(googleMap: GoogleMap, context: Context, geoJsonResId: Int, l
             }
         )
     }
-
-    private fun updateMarkerOnServer(marker: com.example.liststart.model.Marker) {
-        // ViewModel의 updateMarker 함수를 호출
-        markerViewModel.updateMarker(marker)
-    }
-
 
 }
