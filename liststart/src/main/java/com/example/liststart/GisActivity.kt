@@ -404,15 +404,7 @@ class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.Con
             apiClient.connect()
         }
 
-        // 규제구역 버튼 처리
-        val controlLineButton = findViewById<ImageButton>(R.id.controllLine)
-        controlLineButton.setOnClickListener {
-            if (isRestrictedAreaVisible) {
-                hideRestrictedAreas()
-            } else {
-                loadDevelopmentRestrictedAreas()
-            }
-        }
+
 
         //진석 체크박스
         checkBoxLayout = findViewById(R.id.checkBoxLayout)
@@ -1125,6 +1117,8 @@ fun loadGeoJsonFile(googleMap: GoogleMap, context: Context, geoJsonResId: Int, l
                     geoJsonLayer.features.forEach { feature ->
                         val style = GeoJsonPolygonStyle()
                         style.fillColor = color
+                        style.strokeColor = Color.BLACK // 테두리 색상 (검은색)
+                        style.strokeWidth = 1f // 테두리 두께 (가장 얇게)
                         feature.polygonStyle = style
                     }
                     geoJsonLayer.addLayerToMap()
