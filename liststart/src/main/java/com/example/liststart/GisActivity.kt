@@ -221,6 +221,7 @@ class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.Con
 
         // 캐시 초기화
         markerCache.clear()
+        val prepage = findViewById<ImageButton>(R.id.prepage)
 
         //현용 뒤로가기2번눌러서 앱종료
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
@@ -234,6 +235,12 @@ class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.Con
                 }
             }
         })
+
+        // 버튼 클릭 리스너 설정
+        prepage.setOnClickListener {
+            // 현재 Activity 종료
+            finish()
+        }
 
         // 인텐트로 전달된 제목 데이터 받기
         data = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -403,8 +410,6 @@ class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.Con
         } else {
             apiClient.connect()
         }
-
-
 
         //진석 체크박스
         checkBoxLayout = findViewById(R.id.checkBoxLayout)
