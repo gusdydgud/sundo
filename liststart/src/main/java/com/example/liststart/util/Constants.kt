@@ -16,7 +16,6 @@ object Constants {
 
     private const val BASE_URL = "http://172.30.1.10:8585/turbine/api/" //이거 아이피
 
-
     // GSON 인스턴스
     private val gson = GsonBuilder()
         .setFieldNamingPolicy(FieldNamingPolicy.LOWER_CASE_WITH_UNDERSCORES)
