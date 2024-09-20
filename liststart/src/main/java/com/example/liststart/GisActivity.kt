@@ -126,6 +126,8 @@ class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.Con
     private var currentMarkerColorIndex = 0
     // 마커와 비즈니스 ID를 매핑할 Map 추가
     private val markerMap = mutableMapOf<Long, MutableList<Marker>>()
+    // 마커 데이터를 캐싱할 Map 추가
+    private val markerCache = mutableMapOf<Long, com.example.liststart.model.Marker>()
 
     // 지도 이동을 제어하는 변수 추가
     private var isInitialMarkerLoaded = false
@@ -191,6 +193,9 @@ class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.Con
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_gis)
+
+        // 캐시 초기화
+        markerCache.clear()
 
         //현용 뒤로가기2번눌러서 앱종료
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
@@ -678,7 +683,11 @@ class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.Con
         // 마커의 mno가 null이거나 0L인 경우 오류 처리
         if (!isValidMarkerMno(markerMno)) return
 
-        val markerData = markerDataMap[marker]
+        // 캐시에서 데이터 조회
+        val cachedMarkerData = markerCache[markerMno]
+
+        // 캐시에 데이터가 있으면 그 데이터를 사용, 없으면 서버 데이터를 사용
+        val markerData = cachedMarkerData ?: markerDataMap[marker]
 
         // 현재 데이터의 bno와 마커의 bno가 일치하지 않으면 함수 종료
         if (!isValidMarkerData(markerData)) return
@@ -687,7 +696,7 @@ class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.Con
         val dialogView = LayoutInflater.from(this).inflate(R.layout.dialog_markinfo, null)
 
         // 다이얼로그 초기화
-        initializeDialogView(dialogView, marker)
+        initializeDialogView(dialogView, marker, markerData)
 
         // 다이얼로그 빌더 생성 및 표시
         val dialogBuilder = AlertDialog.Builder(this)
@@ -728,7 +737,7 @@ class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.Con
     }
 
     // 다이얼로그 초기화
-    private fun initializeDialogView(dialogView: View, marker: Marker) {
+    private fun initializeDialogView(dialogView: View, marker: Marker, markerData: com.example.liststart.model.Marker?) {
         // 위도, 경도 설정
         val latitudeEditText = dialogView.findViewById<EditText>(R.id.edit_latitude)
         val longitudeEditText = dialogView.findViewById<EditText>(R.id.edit_longitude)
@@ -748,7 +757,11 @@ class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.Con
         titleTextView.text = markerTitle
 
         // 모델 스피너 설정
-        setupModelSpinner(dialogView)
+        setupModelSpinner(dialogView, markerData?.model)
+
+        // 각도 설정
+        val degreeEditText = dialogView.findViewById<EditText>(R.id.edit_angle)
+        degreeEditText.setText(markerData?.degree?.toString() ?: "0") // 저장된 각도 표시
 
         // 방향 스피너 설정
         setupDirectionSpinners(dialogView)
@@ -770,7 +783,7 @@ class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.Con
     }
 
     // 모델 스피너 설정
-    private fun setupModelSpinner(dialogView: View) {
+    private fun setupModelSpinner(dialogView: View, selectedModel: String?) {
         val modelSpinner = dialogView.findViewById<Spinner>(R.id.spinner_model)
         val modelImageView = dialogView.findViewById<ImageView>(R.id.model_image)
         val models = arrayOf("모델 1", "모델 2", "모델 3")
@@ -779,6 +792,13 @@ class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.Con
         val adapter = ArrayAdapter(this, android.R.layout.simple_spinner_item, models)
         adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
         modelSpinner.adapter = adapter
+
+        // model 값에 따라 스피너의 선택된 값을 설정
+        val modelIndex = models.indexOf(selectedModel)
+        if (modelIndex != -1) {
+            modelSpinner.setSelection(modelIndex)
+            modelImageView.setImageResource(modelImages[modelIndex])
+        }
 
         modelSpinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
             override fun onItemSelected(parent: AdapterView<*>, view: View?, position: Int, id: Long) {
@@ -841,27 +861,33 @@ class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.Con
         val newLatitude = dialogView.findViewById<EditText>(R.id.edit_latitude).text.toString().toDoubleOrNull()
         val newLongitude = dialogView.findViewById<EditText>(R.id.edit_longitude).text.toString().toDoubleOrNull()
 
+        // 선택된 모델을 가져오기
+        val selectedModel = dialogView.findViewById<Spinner>(R.id.spinner_model).selectedItem.toString()
+
+        // 입력된 각도를 가져오기
+        val degreeValue = dialogView.findViewById<EditText>(R.id.edit_angle).text.toString().toLongOrNull() ?: 0L
+
         val isDMSChanged = degreesLat != null && minutesLat != null && secondsLat != null &&
                 degreesLong != null && minutesLong != null && secondsLong != null
 
         val isLatLngChanged = newLatitude != null && newLongitude != null
 
         if (isLatLngChanged && (newLatitude != oldLatitude || newLongitude != oldLongitude)) {
-            updateMarkerPosition(marker, newLatitude ?: 0.0, newLongitude ?: 0.0)
+            updateMarkerPosition(marker, newLatitude ?: 0.0, newLongitude ?: 0.0, selectedModel, degreeValue)
             alertDialog.dismiss()
         } else if (isDMSChanged) {
             val latDecimal = dmsToDecimal(degreesLat ?: 0.0, minutesLat ?: 0.0, secondsLat ?: 0.0)
             val longDecimal = dmsToDecimal(degreesLong ?: 0.0, minutesLong ?: 0.0, secondsLong ?: 0.0)
 
-            updateMarkerPosition(marker, latDecimal, longDecimal)
+            updateMarkerPosition(marker, latDecimal, longDecimal, selectedModel, degreeValue)
             alertDialog.dismiss()
         } else {
             Toast.makeText(this@GisActivity, "올바른 값을 입력하세요.", Toast.LENGTH_SHORT).show()
         }
     }
 
-    // 마커 위치 업데이트
-    private fun updateMarkerPosition(marker: Marker, latitude: Double, longitude: Double) {
+    // 마커 위치 업데이트 (모델과 각도 포함)
+    private fun updateMarkerPosition(marker: Marker, latitude: Double, longitude: Double, model: String, degree: Long) {
         marker.position = LatLng(latitude, longitude)
         marker.showInfoWindow()
         googleMap?.moveCamera(CameraUpdateFactory.newLatLng(LatLng(latitude, longitude)))
@@ -872,13 +898,18 @@ class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.Con
             mno = marker.tag as? Long ?: 0L,
             regdate = "", // 필요시 처리
             update = "", // 필요시 처리
-            degree = 0L, // 필요시 처리
+            degree = degree, // 업데이트된 각도
             latitude = latitude,
             longitude = longitude,
             bno = data?.bno ?: 0L, // 사업 ID
-            model = "모델1", // 필요시 처리
+            model = model, // 선택한 모델
             title = marker.title // 마커 제목 업데이트
         )
+
+        // 캐시에 저장
+        markerCache[updatedMarker.mno] = updatedMarker
+
+        // 서버 업데이트
         markerViewModel.updateMarker(updatedMarker)
     }
 
