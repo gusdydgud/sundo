@@ -9,7 +9,7 @@
     android:orientation="vertical"
     android:paddingTop="16dp"
     android:background="@color/doosan_blue"
-    tools:context=".MainActivity">
+    tools:context=".view.MainActivity">
 
     <!-- 상단 이미지 로고 -->
     <ImageView

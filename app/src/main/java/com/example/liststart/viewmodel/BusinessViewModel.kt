@@ -139,15 +139,6 @@ class BusinessViewModel(private val businessDataSource: BusinessDataSource) : Vi
         }
     }
 
-    // 아이템 클릭 처리
-    fun onBusinessItemClicked(business: Business) {
-        if (_isCheckBoxVisible.value == true) {
-            toggleBusinessItemCheck(business)
-        } else {
-            // 아이템 클릭 시 다른 처리 (예: 상세 화면 이동)
-        }
-    }
-
     // 체크박스 클릭 처리
     fun toggleBusinessItemCheck(business: Business) {
         business.isChecked = !business.isChecked

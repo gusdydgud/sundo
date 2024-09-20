@@ -41,6 +41,9 @@ android {
 }
 
 dependencies {
+    implementation(libs.android.maps.utils)
+    implementation (libs.proj4j)
+    implementation (libs.kotlinx.coroutines.android)
 
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.appcompat)

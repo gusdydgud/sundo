@@ -52,6 +52,7 @@ class MainActivity : AppCompatActivity() {
 
         // 어댑터 초기화
         businessAdapter = BusinessAdapter(
+            false,
             isVisible = false, // 초기값은 false
             onItemClick = { item ->
                 handleClick(item)

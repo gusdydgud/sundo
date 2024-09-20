@@ -4,7 +4,7 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    tools:context=".MainActivity">
+    tools:context=".view.MainActivity">
 
     <!-- Google Maps Fragment -->
     <fragment
@@ -26,9 +26,7 @@
         android:paddingHorizontal="4dp"
         android:layout_gravity="bottom"
         android:layout_marginBottom="34dp"
-        android:visibility="invisible"
-        android:clickable="true"
-        android:focusable="true">
+        >
 
         <!-- RecyclerView -->
         <androidx.recyclerview.widget.RecyclerView
@@ -40,6 +38,76 @@
             android:paddingTop="10dp"
             android:paddingRight="20dp"
             android:paddingBottom="16dp" />
+    </LinearLayout>
+    <!-- activity_gis.xml 규제구역 -->
+    <LinearLayout
+        android:id="@+id/checkBoxLayout"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="16dp"
+        android:layout_gravity="bottom"
+        android:background="#FFFFFF"
+        android:visibility="gone"
+        android:layout_marginBottom="77dp"
+        >
+
+        <!-- 각 체크박스를 추가 -->
+        <CheckBox
+            android:id="@+id/checkBox1"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="개발제한구역" />
+
+        <CheckBox
+            android:id="@+id/checkBox2"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="보호대상 해양생물 (intb_anml_a)" />
+
+        <CheckBox
+            android:id="@+id/checkBox3"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="해양 생물 보호 대상 (mammalia)" />
+
+        <CheckBox
+            android:id="@+id/checkBox4"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="수면 보호구역 (prwt_surface)" />
+
+        <CheckBox
+            android:id="@+id/checkBox5"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="담수 보호구역 (pwtrs_a)" />
+
+        <CheckBox
+            android:id="@+id/checkBox6"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="파충류 보호구역 (reptile)" />
+
+        <CheckBox
+            android:id="@+id/checkBox7"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="해조류 보호구역 (seaweed)" />
+
+        <CheckBox
+            android:id="@+id/checkBox8"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="해양 생태계 보호구역 (wld_lvb_pzn_a)" />
+        <CheckBox
+            android:id="@+id/checkBox9"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="어류 보호구역 (fish)" />
+
+
+
     </LinearLayout>
 
 
@@ -96,20 +164,21 @@
     </RelativeLayout>
 
 
-    <!-- Button on top of the Map -->
-    <ImageButton
-        android:id="@+id/controllLine"
-        android:layout_width="40dp"
-        android:layout_height="40dp"
-        android:layout_alignParentStart="true"
-        android:layout_marginLeft="20dp"
-        android:layout_marginTop="120dp"
-        android:background="@drawable/textname"
-        android:contentDescription="Left Button"
-        android:padding="6dp"
-        android:scaleType="centerCrop"
-        app:tint="@color/black"
-        android:src="@drawable/ic_alert" />
+
+<!--    <ImageButton-->
+<!--        android:id="@+id/prepage"-->
+<!--        android:layout_width="40dp"-->
+<!--        android:layout_height="40dp"-->
+<!--        android:layout_alignParentStart="true"-->
+<!--        android:layout_marginLeft="20dp"-->
+<!--        android:layout_marginTop="10dp"-->
+<!--        android:background="@drawable/textname"-->
+<!--        android:contentDescription="규제지역 버튼"-->
+<!--        android:padding="6dp"-->
+<!--        android:scaleType="centerCrop"-->
+<!--        app:tint="@color/black"-->
+<!--        android:src="@drawable/prebtn" />-->
+
 
     <ImageView
         android:id="@+id/centerMarkerPreview"
@@ -141,19 +210,19 @@
         android:layout_height="wrap_content"
         android:layout_gravity="bottom"
         android:layout_marginBottom="0dp"
+        android:background="#FFFFFF"
         android:gravity="center"
         android:orientation="horizontal"
-        android:background="#FFFFFF"
-        android:paddingBottom="13dp"
-        android:paddingTop="13dp">
+        android:paddingTop="13dp"
+        android:paddingBottom="13dp">
 
 
         <!-- First Button with Icon and Text -->
         <LinearLayout
+            android:id="@+id/selctloti"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:id="@+id/selctloti"
             android:gravity="center"
             android:orientation="vertical"
             android:padding="0dp">
@@ -161,9 +230,9 @@
             <ImageView
                 android:layout_width="32dp"
                 android:layout_height="32dp"
+                android:padding="1dp"
                 android:src="@drawable/ic_select"
-                app:tint="@color/black"
-                android:padding="1dp"/>
+                app:tint="@color/black" />
 
             <TextView
                 android:layout_width="wrap_content"
@@ -187,9 +256,9 @@
             <ImageView
                 android:layout_width="32dp"
                 android:layout_height="32dp"
+                android:padding="2dp"
                 android:src="@drawable/ic_bslist"
-                app:tint="@color/black"
-                android:padding="2dp"/>
+                app:tint="@color/black" />
 
             <TextView
                 android:layout_width="wrap_content"
@@ -214,7 +283,7 @@
                 android:layout_width="32dp"
                 android:layout_height="32dp"
                 android:src="@drawable/ic_camera"
-                app:tint="@color/black"/>
+                app:tint="@color/black" />
 
             <TextView
                 android:layout_width="wrap_content"
@@ -227,6 +296,7 @@
 
         <!-- Fourth Button with Icon and Text -->
         <LinearLayout
+            android:id="@+id/saveButton"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
@@ -237,18 +307,19 @@
             <ImageView
                 android:layout_width="32dp"
                 android:layout_height="32dp"
-                android:src="@drawable/ic_save"
-                app:tint="@color/black"
-                android:padding="2dp"/>
+                android:padding="2dp"
+                android:src="@drawable/ic_alert"
+                app:tint="@color/black" />
 
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="저장 하기"
+                android:text="규제 지역"
                 android:textColor="#007AFF"
                 android:textSize="14sp" />
 
         </LinearLayout>
+
 
     </LinearLayout>
 
