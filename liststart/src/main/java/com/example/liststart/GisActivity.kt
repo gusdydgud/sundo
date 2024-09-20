@@ -174,14 +174,20 @@ class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.Con
     // 규제구역 내에 있는지 확인하는 함수
     private fun isLocationInRestrictedArea(lat: Double, long: Double): Boolean {
         for (polygon in polygonList) {
+            Log.d("PolygonDebug", "Checking polygon: ${polygon.points}")
+
             val polygonBounds = polygon.points
             val point = LatLng(lat, long)
 
             // 주어진 좌표가 폴리곤 내에 있는지 확인
             if (containsLocation(point, polygonBounds)) {
+                Log.d("PolygonDebug", "Location ($lat, $long) is inside restricted area.")
+
                 return true
             }
         }
+        Log.d("PolygonDebug", "Location ($lat, $long) is NOT inside restricted area.")
+
         return false
     }
     // LatLng가 폴리곤 안에 있는지 확인하는 함수
@@ -190,12 +196,15 @@ class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.Con
         for (j in polygon.indices) {
             val vertex1 = polygon[j]
             val vertex2 = polygon[(j + 1) % polygon.size]
+            Log.d("PolygonDebug", "Checking intersection between point $point and edge $vertex1 to $vertex2")
+
             if (rayCastIntersect(point, vertex1, vertex2)) {
                 intersectCount++
             }
         }
-        return (intersectCount % 2 == 1) // 홀수이면 폴리곤 안에 있음
-    }
+        val isInside = (intersectCount % 2 == 1)
+        Log.d("PolygonDebug", "Point $point is ${if (isInside) "inside" else "outside"} the polygon.")
+        return isInside    }
 
     // ray-casting 알고리즘 사용하여 포인트가 폴리곤 내부에 있는지 확인
     private fun rayCastIntersect(point: LatLng, vertex1: LatLng, vertex2: LatLng): Boolean {
@@ -221,26 +230,26 @@ class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.Con
 
         // 캐시 초기화
         markerCache.clear()
-        val prepage = findViewById<ImageButton>(R.id.prepage)
+//        val prepage = findViewById<ImageButton>(R.id.prepage)
 
-        //현용 뒤로가기2번눌러서 앱종료
-        onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
-            override fun handleOnBackPressed() {
-                if (System.currentTimeMillis() > backPressedTime + 2000) {
-                    backPressedTime = System.currentTimeMillis()
-                    Toast.makeText(this@GisActivity, "뒤로가기를 한 번 더 누르면 앱이 종료됩니다", Toast.LENGTH_SHORT).show()
-                } else {
-                    finishAffinity()
-                    System.exit(0)
-                }
-            }
-        })
+//        //현용 뒤로가기2번눌러서 앱종료
+//        onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
+//            override fun handleOnBackPressed() {
+//                if (System.currentTimeMillis() > backPressedTime + 2000) {
+//                    backPressedTime = System.currentTimeMillis()
+//                    Toast.makeText(this@GisActivity, "뒤로가기를 한 번 더 누르면 앱이 종료됩니다", Toast.LENGTH_SHORT).show()
+//                } else {
+//                    finishAffinity()
+//                    System.exit(0)
+//                }
+//            }
+//        })
 
-        // 버튼 클릭 리스너 설정
-        prepage.setOnClickListener {
-            // 현재 Activity 종료
-            finish()
-        }
+//        // 버튼 클릭 리스너 설정
+//        prepage.setOnClickListener {
+//            // 현재 Activity 종료
+//            finish()
+//        }
 
         // 인텐트로 전달된 제목 데이터 받기
         data = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -1125,8 +1134,30 @@ fun loadGeoJsonFile(googleMap: GoogleMap, context: Context, geoJsonResId: Int, l
                         style.strokeColor = Color.BLACK // 테두리 색상 (검은색)
                         style.strokeWidth = 1f // 테두리 두께 (가장 얇게)
                         feature.polygonStyle = style
+                        // 규제 구역 폴리곤을 polygonList에 추가
+// GeoJsonPolygon에 대해 polygonList에 추가
+                        val geometry = feature.geometry
+                        if (geometry is GeoJsonPolygon) {
+                            val polygonOptions = PolygonOptions()
+
+                            geometry.outerBoundaryCoordinates.forEach { latLng ->
+                                polygonOptions.add(latLng)
+                            }
+
+                            val polygon = googleMap?.addPolygon(polygonOptions)
+                            polygon?.let { polygonList.add(it)
+                            }
+                        } else {
+
+                        }
+
                     }
                     geoJsonLayer.addLayerToMap()
+                    // 마커 클릭 리스너를 다시 설정
+                    googleMap?.setOnMarkerClickListener { marker ->
+                        showCustomDialog(marker)
+                        true
+                    }
 
                 }
             } catch (e: Exception) {
