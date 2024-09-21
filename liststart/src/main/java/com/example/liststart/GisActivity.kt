@@ -129,7 +129,7 @@ class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.Con
         BitmapDescriptorFactory.HUE_GREEN,
         BitmapDescriptorFactory.HUE_ORANGE,
         BitmapDescriptorFactory.HUE_YELLOW,
-        BitmapDescriptorFactory.HUE_AZURE
+        BitmapDescriptorFactory.HUE_VIOLET
     )
 
     private fun getMarkerColorForBno(bno: Long): Float {
@@ -1088,10 +1088,12 @@ class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.Con
                                 // GeoJsonMultiPolygon의 각 Polygon을 순회
                                 geometry.polygons.forEach { polygonGeometry ->
                                     val polygonOptions = PolygonOptions()
+
                                     // 각 Polygon의 외곽 경계 좌표를 추가
                                     polygonGeometry.outerBoundaryCoordinates.forEach { latLng ->
                                         polygonOptions.add(latLng)
                                     }
+
                                     val polygon = googleMap?.addPolygon(polygonOptions)
                                     polygon?.let { polygonList.add(it) }
                                 }
