@@ -4,6 +4,7 @@ import android.animation.Animator
 import android.animation.AnimatorListenerAdapter
 import android.animation.ObjectAnimator
 import android.content.Context
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Color
 import android.location.Location
@@ -119,9 +120,12 @@ class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.Con
     private lateinit var markerViewModel: MarkerViewModel // 마커 ViewModel
 
 // 수민
-    // 사업별로 색상을 매핑할 Map
-    private val businessColorMap = mutableMapOf<Long, Float>()
-    private val colorList = listOf(
+    // 마커와 비즈니스 ID를 매핑할 Map 추가
+    private val markerMap = mutableMapOf<Long, MutableList<Marker>>()
+    // 마커 데이터를 캐싱할 Map 추가
+    private val markerCache = mutableMapOf<Long, com.example.liststart.model.Marker>()
+    private val markerColorMap = mutableMapOf<Long, Float>() // bno별로 색상 매핑
+    private val availableColors = listOf(
         BitmapDescriptorFactory.HUE_RED,
         BitmapDescriptorFactory.HUE_BLUE,
         BitmapDescriptorFactory.HUE_GREEN,
@@ -129,27 +133,17 @@ class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.Con
         BitmapDescriptorFactory.HUE_YELLOW,
         BitmapDescriptorFactory.HUE_VIOLET
     )
-    private var currentMarkerColorIndex = 0
-    // 마커와 비즈니스 ID를 매핑할 Map 추가
-    private val markerMap = mutableMapOf<Long, MutableList<Marker>>()
-    // 마커 데이터를 캐싱할 Map 추가
-    private val markerCache = mutableMapOf<Long, com.example.liststart.model.Marker>()
 
+    private fun getMarkerColorForBno(bno: Long): Float {
+        return markerColorMap.getOrPut(bno) {
+            availableColors[markerColorMap.size % availableColors.size] // 색상을 순차적으로 할당
+        }
+    }
     // 지도 이동을 제어하는 변수 추가
     private var isInitialMarkerLoaded = false
 
-    // 사업에 따라 고유 색상 지정
-    private fun getNextMarkerColor(): Float {
-        // 현재 색상 인덱스에 해당하는 색상 선택
-        val color = colorList[currentMarkerColorIndex]
-        // 다음 색상을 위해 인덱스 업데이트, 배열의 끝에 도달하면 0으로 리셋
-        currentMarkerColorIndex = (currentMarkerColorIndex + 1) % colorList.size
-        return color
-    }
-
     // 마커와 마커 데이터를 매핑할 Map 추가
     private val markerDataMap = mutableMapOf<Marker, com.example.liststart.model.Marker>()
-
 // 수민
 
     // 규제구역 내에 있는지 확인하는 함수
@@ -575,8 +569,20 @@ class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.Con
         //AR camera
 //    val cameraBtn = findViewById<LinearLayout>(R.id.cameraBtn)
 //    cameraBtn.setOnClickListener{
-//        val intent = Intent(this, UnityPlayerActivity::class.java)
-//        intent.putExtra("unity", "some_value")
+//        val markerDataList = ArrayList<Marker>() // 마커 데이터를 담을 리스트
+//
+//        for (marker in markersList) {
+//            val markerData = markerDataMap[marker] // 마커 데이터 매핑에서 해당 마커의 데이터를 가져옴
+//            markerData?.let {
+//                markerDataList.add(it) // Marker 객체를 리스트에 추가
+//            }
+//        }
+//
+//        // Unity로 넘길 인텐트를 생성
+//        val intent = Intent(this, UnityPlayerActivity::class.java).apply {
+//            putParcelableArrayListExtra("markerDataList", markerDataList) // Marker 객체 리스트를 담아서 보냄
+//        }
+//
 //        startActivity(intent)
 //    }
     }
@@ -588,7 +594,8 @@ class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.Con
 
     // 마커를 지도에 추가하고 관련 맵에 업데이트
     private fun addMarkerToMap(markerData: com.example.liststart.model.Marker) {
-        val markerColor = businessColorMap.getOrPut(markerData.bno) { getNextMarkerColor() }
+        // 마커 색상 설정 (bno에 따라)
+        val markerColor = getMarkerColorForBno(markerData.bno)
 
         val markerOptions = MarkerOptions()
             .position(LatLng(markerData.latitude, markerData.longitude))
@@ -619,10 +626,8 @@ class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.Con
         markerMap[bno]?.forEach { marker ->
             marker.remove() // 지도에서 마커 제거
         }
-        // 제거 후 해당 사업의 마커 리스트도 초기화
-        markerMap[bno]?.clear()
-        // businessColorMap에서도 해당 사업 번호의 색상 제거
-        businessColorMap.remove(bno)
+        markerMap.remove(bno) // 해당 사업(bno)의 마커 리스트 제거
+        markerDataMap.entries.removeIf { it.value.bno == bno } // 마커 데이터 맵에서 제거
     }
 
     //현용
@@ -1053,7 +1058,6 @@ class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.Con
         }
     }
 
-
     private fun hideRestrictedAreas() {
         polygonList.forEach { it.remove() }
         polygonList.clear()
@@ -1356,39 +1360,14 @@ class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.Con
 // 수민
 
     private fun saveMarkerToServer(marker: com.example.liststart.model.Marker) {
+        // 마커 데이터를 그대로 서버로 전송 (color 값 포함)
         markerViewModel.addMarker(
             marker,
             onSuccess = { savedMarker ->
                 Toast.makeText(this, "마커가 서버에 저장되었습니다.", Toast.LENGTH_SHORT).show()
 
-                // 성공적으로 저장된 후, 새로 추가한 마커에 서버에서 반환된 mno 설정
-                val addedMarker = addMarkerAtLocation(
-                    latitude = savedMarker.latitude,
-                    longitude = savedMarker.longitude,
-                    title = savedMarker.title ?: "기본 제목",
-                    markerColor = BitmapDescriptorFactory.HUE_RED,
-                    markerData = savedMarker // 서버에서 반환된 마커 데이터 사용
-                )
-
-                if (addedMarker != null) {
-                    // 서버에서 반환된 mno 값을 새로 추가한 마커의 tag에 설정
-                    addedMarker.tag = savedMarker.mno
-
-                    // markersList에 추가된 마커를 갱신
-                    markersList.add(addedMarker)
-
-                    // 마커를 markerMap에 추가
-                    val bno = savedMarker.bno
-                    if (bno != null) {
-                        val markerListForBno = markerMap.getOrPut(bno) { mutableListOf() }
-                        markerListForBno.add(addedMarker)
-                    }
-
-                    // markerDataMap에 마커와 데이터 매핑 추가
-                    markerDataMap[addedMarker] = savedMarker
-                } else {
-                    Toast.makeText(this, "마커 추가에 실패했습니다.", Toast.LENGTH_SHORT).show()
-                }
+                // 저장 후 지도에 마커 추가
+                addMarkerToMap(savedMarker)
             },
             onFailure = { errorMessage ->
                 Toast.makeText(this, errorMessage, Toast.LENGTH_SHORT).show()
