@@ -55,6 +55,7 @@ import com.google.android.gms.maps.model.MarkerOptions
 import com.google.android.gms.maps.model.Polygon
 import com.google.android.gms.maps.model.PolygonOptions
 import com.google.android.gms.tasks.OnSuccessListener
+import com.google.maps.android.data.geojson.GeoJsonMultiPolygon
 import com.google.maps.android.data.geojson.GeoJsonPolygon
 import com.google.maps.android.data.geojson.GeoJsonPolygonStyle
 import kotlinx.coroutines.CoroutineScope
@@ -152,19 +153,16 @@ class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.Con
     // 규제구역 내에 있는지 확인하는 함수
     private fun isLocationInRestrictedArea(lat: Double, long: Double): Boolean {
         for (polygon in polygonList) {
-            Log.d("PolygonDebug", "Checking polygon: ${polygon.points}")
 
             val polygonBounds = polygon.points
             val point = LatLng(lat, long)
 
             // 주어진 좌표가 폴리곤 내에 있는지 확인
             if (containsLocation(point, polygonBounds)) {
-                Log.d("PolygonDebug", "Location ($lat, $long) is inside restricted area.")
 
                 return true
             }
         }
-        Log.d("PolygonDebug", "Location ($lat, $long) is NOT inside restricted area.")
 
         return false
     }
@@ -174,14 +172,13 @@ class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.Con
         for (j in polygon.indices) {
             val vertex1 = polygon[j]
             val vertex2 = polygon[(j + 1) % polygon.size]
-            Log.d("PolygonDebug", "Checking intersection between point $point and edge $vertex1 to $vertex2")
+
 
             if (rayCastIntersect(point, vertex1, vertex2)) {
                 intersectCount++
             }
         }
         val isInside = (intersectCount % 2 == 1)
-        Log.d("PolygonDebug", "Point $point is ${if (isInside) "inside" else "outside"} the polygon.")
         return isInside    }
 
     // ray-casting 알고리즘 사용하여 포인트가 폴리곤 내부에 있는지 확인
@@ -1083,18 +1080,19 @@ class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.Con
                             // 규제 구역 폴리곤을 polygonList에 추가
     // GeoJsonPolygon에 대해 polygonList에 추가
                             val geometry = feature.geometry
-                            if (geometry is GeoJsonPolygon) {
-                                val polygonOptions = PolygonOptions()
+                            if (geometry is GeoJsonMultiPolygon) {
+                                // GeoJsonMultiPolygon의 각 Polygon을 순회
+                                geometry.polygons.forEach { polygonGeometry ->
+                                    val polygonOptions = PolygonOptions()
 
-                                geometry.outerBoundaryCoordinates.forEach { latLng ->
-                                    polygonOptions.add(latLng)
+                                    // 각 Polygon의 외곽 경계 좌표를 추가
+                                    polygonGeometry.outerBoundaryCoordinates.forEach { latLng ->
+                                        polygonOptions.add(latLng)
+                                    }
+
+                                    val polygon = googleMap?.addPolygon(polygonOptions)
+                                    polygon?.let { polygonList.add(it) }
                                 }
-
-                                val polygon = googleMap?.addPolygon(polygonOptions)
-                                polygon?.let { polygonList.add(it)
-                                }
-                            } else {
-
                             }
 
                         }
