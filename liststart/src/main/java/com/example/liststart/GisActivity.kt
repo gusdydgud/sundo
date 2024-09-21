@@ -82,6 +82,8 @@ class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.Con
     //체크박스 규제구역
     private lateinit var checkBoxLayout: LinearLayout
     private var isCheckBoxVisible = false
+    private var polygonOptionsList: MutableList<PolygonOptions> = mutableListOf()
+
 
     // UI 요소
     private lateinit var centerMarkerPreview: ImageView // 화면 가운데 미리보기 마커
@@ -1055,6 +1057,7 @@ class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.Con
     private fun hideRestrictedAreas() {
         polygonList.forEach { it.remove() }
         polygonList.clear()
+        polygonOptionsList.clear()
         isRestrictedAreaVisible = false
     }
 
@@ -1074,11 +1077,11 @@ class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.Con
                         geoJsonLayer.features.forEach { feature ->
                             val style = GeoJsonPolygonStyle()
                             style.fillColor = color
-                            style.strokeColor = Color.BLACK // 테두리 색상 (검은색)
-                            style.strokeWidth = 1f // 테두리 두께 (가장 얇게)
+                            style.strokeColor = Color.TRANSPARENT // 테두리 없애기
+                            style.strokeWidth = 0f // 테두리 두께 0
                             feature.polygonStyle = style
                             // 규제 구역 폴리곤을 polygonList에 추가
-    // GeoJsonPolygon에 대해 polygonList에 추가
+//                     GeoJsonPolygon에 대해 polygonList에 추가
                             val geometry = feature.geometry
                             if (geometry is GeoJsonMultiPolygon) {
                                 // GeoJsonMultiPolygon의 각 Polygon을 순회
@@ -1116,10 +1119,33 @@ class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.Con
 
     }
 
+    // 해당 레이어와 관련된 폴리곤을 제거하는 함수
     private fun hideGeoJsonLayer(layerKey: String) {
         geoJsonLayers[layerKey]?.let { layer ->
-            layer.removeLayerFromMap() // 해당 레이어를 지도에서 제거
-            geoJsonLayers.remove(layerKey) // 맵에서 레이어를 삭제
+            // 지도에서 레이어 제거
+            layer.removeLayerFromMap()
+
+            // polygonList에서 해당 레이어와 관련된 폴리곤 제거
+            val polygonsToRemove = polygonList.filter { polygon ->
+                // polygon이 레이어의 폴리곤과 일치하는지 확인하는 로직 필요
+                // 예시로 각 폴리곤의 경계 좌표를 비교해서 동일한 폴리곤을 찾습니다.
+                val featurePolygons = layer.features.flatMap { feature ->
+                    val geometry = feature.geometry
+                    if (geometry is GeoJsonMultiPolygon) {
+                        geometry.polygons.map { it.outerBoundaryCoordinates }
+                    } else emptyList()
+                }
+                featurePolygons.any { it == polygon.points }
+            }
+
+            // 해당 폴리곤들을 지도에서 제거하고 리스트에서도 제거
+            polygonsToRemove.forEach { polygon ->
+                polygon.remove()
+                polygonList.remove(polygon)
+            }
+
+            // 레이어 삭제
+            geoJsonLayers.remove(layerKey)
             Toast.makeText(this, "$layerKey 레이어가 제거되었습니다.", Toast.LENGTH_SHORT).show()
         } ?: run {
             Log.d("GeoJson", "$layerKey 레이어를 찾을 수 없습니다.")
