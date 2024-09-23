@@ -849,7 +849,7 @@ class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.Con
         setDmsValues(dialogView, latDegrees, latMinutes, latSeconds, longDegrees, longMinutes, longSeconds)
 
         // 제목 설정
-        val titleTextView = dialogView.findViewById<TextView>(R.id.title_text)
+        val titleTextView = dialogView.findViewById<TextView>(R.id.edit_title)
 
         // markerData가 존재한다면 마커의 제목을 설정하고, 그렇지 않다면 기본 제목을 설정합니다.
         val markerTitle = marker.title ?: "마커 정보"
@@ -960,6 +960,9 @@ class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.Con
         val newLatitude = dialogView.findViewById<EditText>(R.id.edit_latitude).text.toString().toDoubleOrNull()
         val newLongitude = dialogView.findViewById<EditText>(R.id.edit_longitude).text.toString().toDoubleOrNull()
 
+        // 사용자가 입력한 새로운 제목을 가져옴
+        val newTitle = dialogView.findViewById<EditText>(R.id.edit_title).text.toString()
+
         // 선택된 모델을 가져오기
         val selectedModel = dialogView.findViewById<Spinner>(R.id.spinner_model).selectedItem.toString()
 
@@ -971,25 +974,28 @@ class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.Con
 
         val isLatLngChanged = newLatitude != null && newLongitude != null
 
+        // 위도/경도 값 변경이 있는지 확인하고 업데이트
         if (isLatLngChanged && (newLatitude != oldLatitude || newLongitude != oldLongitude)) {
-            updateMarkerPosition(marker, newLatitude ?: 0.0, newLongitude ?: 0.0, selectedModel, degreeValue)
+            updateMarkerPosition(marker, newLatitude ?: 0.0, newLongitude ?: 0.0, newTitle, selectedModel, degreeValue)
             alertDialog.dismiss()
         } else if (isDMSChanged) {
             val latDecimal = dmsToDecimal(degreesLat ?: 0.0, minutesLat ?: 0.0, secondsLat ?: 0.0)
             val longDecimal = dmsToDecimal(degreesLong ?: 0.0, minutesLong ?: 0.0, secondsLong ?: 0.0)
 
-            updateMarkerPosition(marker, latDecimal, longDecimal, selectedModel, degreeValue)
+            updateMarkerPosition(marker, latDecimal, longDecimal, newTitle, selectedModel, degreeValue)
             alertDialog.dismiss()
         } else {
             Toast.makeText(this@GisActivity, "올바른 값을 입력하세요.", Toast.LENGTH_SHORT).show()
         }
     }
     // 마커 위치 업데이트 (모델과 각도 포함)
-    private fun updateMarkerPosition(marker: Marker, latitude: Double, longitude: Double, model: String, degree: Long) {
+    private fun updateMarkerPosition(marker: Marker, latitude: Double, longitude: Double, title: String, model: String, degree: Long) {
         marker.position = LatLng(latitude, longitude)
-        marker.showInfoWindow()
+        marker.title = title // 새 제목으로 마커의 title 업데이트
+        marker.showInfoWindow() // InfoWindow를 갱신
         googleMap?.moveCamera(CameraUpdateFactory.newLatLng(LatLng(latitude, longitude)))
-        Toast.makeText(this@GisActivity, "마커 위치가 업데이트되었습니다.", Toast.LENGTH_SHORT).show()
+
+        Toast.makeText(this@GisActivity, "마커가 업데이트되었습니다.", Toast.LENGTH_SHORT).show()
 
         // 서버로 마커 정보 업데이트
         val updatedMarker = com.example.liststart.model.Marker(
@@ -1001,7 +1007,7 @@ class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.Con
             longitude = longitude,
             bno = data?.bno ?: 0L, // 사업 ID
             model = model, // 선택한 모델
-            title = marker.title // 마커 제목 업데이트
+            title = title // 새로 입력된 제목으로 업데이트
         )
 
         // 캐시에 저장
