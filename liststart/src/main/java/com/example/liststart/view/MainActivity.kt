@@ -1,5 +1,4 @@
 package com.example.liststart.view
-
 import android.app.Dialog
 import android.content.Context
 import android.content.Intent
@@ -42,7 +41,10 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-        // ViewModel 초기화
+        // 데이터베이스 초기화
+        DataSourceProvider.initializeDatabase(this)
+
+        // ViewModel 초기화 - 로컬 DB를 사용하는 ViewModel로 변경
         val viewModelFactory = DataSourceProvider.businessViewModelFactory
         businessViewModel = ViewModelProvider(this, viewModelFactory).get(BusinessViewModel::class.java)
 
@@ -80,7 +82,7 @@ class MainActivity : AppCompatActivity() {
             Toast.makeText(this, message, Toast.LENGTH_SHORT).show()
         }
 
-        // 네트워크 상태 확인 후 데이터 로드
+        // 로컬 DB에서 데이터 로드
         loadInitialBusinessData()
 
         // 추가 버튼 클릭 리스너
@@ -114,13 +116,9 @@ class MainActivity : AppCompatActivity() {
         setupBackPressed()
     }
 
-    // 초기 비즈니스 데이터 로드
+    // 로컬 DB에서 비즈니스 데이터 로드
     private fun loadInitialBusinessData() {
-        if (Constants.isNetworkAvailable(this)) {
-            businessViewModel.loadBusinessList() // 초기 데이터 로드
-        } else {
-            Toast.makeText(this, "네트워크 연결이 필요합니다.", Toast.LENGTH_SHORT).show()
-        }
+        businessViewModel.loadBusinessList() // 로컬 DB에서 데이터 로드
     }
 
     // 아이템 클릭 처리

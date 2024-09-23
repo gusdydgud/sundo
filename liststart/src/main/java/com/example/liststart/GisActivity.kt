@@ -234,13 +234,11 @@ class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.Con
             isVisible = true,
             onItemClick = { item -> Log.d("rootClick", "onCreate: $item") },  // 아이템 클릭 이벤트 처리
             onCheckBoxClick = { item -> item.bno?.let { bno ->
-                    if (item.isChecked) {
-                        // 체크박스가 체크되었을 때 마커 추가
-                        markerViewModel.loadMarkerList(bno)
-                    } else {
-                        // 체크박스가 해제되었을 때 마커 제거
-                        removeMarkersForBusiness(bno)
-                    }
+                if (item.isChecked) {
+                    markerViewModel.loadMarkerListFromDb(bno) // 로컬 DB에서 마커 리스트 불러오기
+                } else {
+                    removeMarkersForBusiness(bno)
+                }
                 }
             }  // 체크박스 클릭 이벤트 처리
         )
@@ -249,7 +247,7 @@ class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.Con
 
         // 전달된 사업의 마커를 로드하고 지도에 표시
         data?.bno?.let { initialBno ->
-            markerViewModel.loadMarkerList(initialBno)
+            markerViewModel.loadMarkerListFromDb(initialBno) // 로컬 DB에서 마커 리스트 불러오기
         }
 
         markerViewModel.markerList.observe(this) { updatedMarkerList ->
@@ -298,7 +296,7 @@ class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.Con
                 }
             }
 
-            // 첫 번째 마커를 지도 중심으로 이동
+            // 추가된 부분: 제일 먼저 찍힌 마커로 카메라 이동
             moveToFirstMarkerIfNeeded(updatedMarkerList)
         }
 
@@ -322,12 +320,10 @@ class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.Con
         // 네트워크 상태 확인 후 데이터 로딩
         if (Constants.isNetworkAvailable(this)) {
             data?.let { currentBusiness ->
-                // 현재 선택된 사업지를 제외한 사업지 목록 로드
-                businessViewModel.loadBusinessListExcluding(currentBusiness)
+                businessViewModel.loadBusinessListFromDbExcluding(currentBusiness) // 로컬 DB에서 사업 리스트 불러오기
             }
-            // bno가 null이 아닌 경우에만 마커 로딩
             data?.bno?.let { bno ->
-                markerViewModel.loadMarkerList(bno)
+                markerViewModel.loadMarkerListFromDb(bno) // 로컬 DB에서 마커 리스트 불러오기
             } ?: run {
                 Toast.makeText(this, "사업 정보가 없습니다.", Toast.LENGTH_SHORT).show()
             }
@@ -523,10 +519,10 @@ class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.Con
                         latitude = currentCenter.latitude,
                         longitude = currentCenter.longitude,
                         bno = data?.bno ?: 0L,
-                        model = "model1",
+                        model = "모델1",
                         title = (title ?: "사업체명") + " $markerCounter"
                     )
-                    saveMarkerToServer(marker)
+                    saveMarkerToLocal(marker) // 로컬 DB에 저장
                 }
             } else {
                 Toast.makeText(this, "현재 위치를 가져올 수 없습니다.", Toast.LENGTH_SHORT).show()
@@ -615,6 +611,7 @@ class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.Con
     // 첫 번째 마커로 이동
     private fun moveToFirstMarkerIfNeeded(markerList: List<com.example.liststart.model.Marker>) {
         if (markerList.isNotEmpty() && !isInitialMarkerLoaded) {
+            // 제일 먼저 찍힌 마커의 좌표로 카메라 이동
             val firstMarkerPosition = LatLng(markerList.first().latitude, markerList.first().longitude)
             googleMap?.moveCamera(CameraUpdateFactory.newLatLngZoom(firstMarkerPosition, 15f))
             isInitialMarkerLoaded = true
@@ -644,8 +641,12 @@ class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.Con
             true
         }
 
-        // 지도 이동: 전달된 사업 좌표로 이동
-        if (lat != 0.0 && long != 0.0) {
+        // lat와 long이 0일 경우 마커 리스트에서 첫 번째 마커로 이동
+        if (lat == 0.0 && long == 0.0) {
+            // 마커 로드 후 첫 번째 마커로 이동
+            moveToInitialMarker()
+        } else {
+            // lat와 long이 유효한 값일 경우 그 위치로 이동
             val location = LatLng(lat, long)
             val zoomLevel = 15f // 원하는 줌 레벨 설정
             googleMap?.moveCamera(CameraUpdateFactory.newLatLngZoom(location, zoomLevel))
@@ -997,7 +998,7 @@ class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.Con
 
         Toast.makeText(this@GisActivity, "마커가 업데이트되었습니다.", Toast.LENGTH_SHORT).show()
 
-        // 서버로 마커 정보 업데이트
+        // 로컬 DB로 마커 정보 업데이트
         val updatedMarker = com.example.liststart.model.Marker(
             mno = marker.tag as? Long ?: 0L,
             regdate = "", // 필요시 처리
@@ -1013,7 +1014,7 @@ class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.Con
         // 캐시에 저장
         markerCache[updatedMarker.mno] = updatedMarker
 
-        // 서버 업데이트
+        // 로컬 DB 업데이트 메서드 호출
         markerViewModel.updateMarker(updatedMarker)
     }
 
@@ -1023,10 +1024,19 @@ class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.Con
         if (markerMno != null && markerMno != 0L) {
             val bno = data?.bno
             if (bno != null) {
-                markerViewModel.deleteMarker(markerMno, bno) // 마커 삭제 요청
-                marker.remove() // 지도에서 마커 제거
-                markerMap[bno]?.remove(marker)
-                markerDataMap.remove(marker)
+                // 현재 마커의 bno가 선택된 사업체의 bno와 일치하는지 확인
+                if (markerDataMap[marker]?.bno == bno) {
+                    // Marker 객체를 생성하여 삭제 요청
+                    val markerToDelete = markerDataMap[marker] // markerDataMap에서 Marker 객체를 가져옴
+                    if (markerToDelete != null) {
+                        markerViewModel.deleteMarker(markerToDelete) // 마커 삭제 요청
+                        marker.remove() // 지도에서 마커 제거
+                        markerMap[bno]?.remove(marker) // 마커맵에서 제거
+                        markerDataMap.remove(marker) // 데이터 맵에서 제거
+                    }
+                } else {
+                    Toast.makeText(this, "이 마커는 삭제할 수 없습니다.", Toast.LENGTH_SHORT).show()
+                }
             }
         } else {
             Toast.makeText(this, "마커 정보가 잘못되었습니다.", Toast.LENGTH_SHORT).show()
@@ -1379,6 +1389,32 @@ class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.Con
                 Toast.makeText(this, errorMessage, Toast.LENGTH_SHORT).show()
             }
         )
+    }
+    private fun saveMarkerToLocal(marker: com.example.liststart.model.Marker) {
+        markerViewModel.addMarker(
+            marker,
+            onSuccess = { savedMarker ->
+                Toast.makeText(this, "마커가 로컬 DB에 저장되었습니다.", Toast.LENGTH_SHORT).show()
+                addMarkerToMap(savedMarker) // 저장 후 지도에 마커 추가
+            },
+            onFailure = { errorMessage ->
+                Toast.makeText(this, errorMessage, Toast.LENGTH_SHORT).show()
+            }
+        )
+    }
+    private fun moveToInitialMarker() {
+        // ViewModel을 통해 로드된 마커 리스트가 있을 때만 첫 번째 마커로 이동
+        markerViewModel.markerList.observe(this) { markerList ->
+            if (markerList.isNotEmpty() && !isInitialMarkerLoaded) {
+                // 제일 먼저 추가된 마커의 위치로 카메라 이동
+                val firstMarker = markerList.first()
+                val firstMarkerPosition = LatLng(firstMarker.latitude, firstMarker.longitude)
+                googleMap?.moveCamera(CameraUpdateFactory.newLatLngZoom(firstMarkerPosition, 15f))
+                isInitialMarkerLoaded = true
+            } else {
+                Toast.makeText(this, "불러올 마커가 없습니다.", Toast.LENGTH_SHORT).show()
+            }
+        }
     }
 
 }
