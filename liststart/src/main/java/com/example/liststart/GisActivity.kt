@@ -56,9 +56,11 @@ import com.google.android.gms.maps.model.MarkerOptions
 import com.google.android.gms.maps.model.Polygon
 import com.google.android.gms.maps.model.PolygonOptions
 import com.google.android.gms.tasks.OnSuccessListener
+import com.google.maps.android.PolyUtil
 import com.google.maps.android.data.geojson.GeoJsonMultiPolygon
 import com.google.maps.android.data.geojson.GeoJsonPolygon
 import com.google.maps.android.data.geojson.GeoJsonPolygonStyle
+import com.google.maps.android.geometry.Point
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -395,7 +397,7 @@ class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.Con
                 loadDevelopmentRestrictedAreas()
             } else {
                 // 개발제한구역 숨기기
-                hideRestrictedAreas()
+                hideRestrictedAreas1()
             }
         }
 
@@ -403,9 +405,9 @@ class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.Con
         checkBox2.setOnCheckedChangeListener { _, isChecked ->
             googleMap?.let { map ->
                 if (isChecked) {
-                    loadGeoJsonFile(map, this, R.raw.intb_anml_a, "intb_anml_a", Color.parseColor("#80FF0000")) // 빨간색
+                    loadGeoJsonFile(map, this, R.raw.intb_anml_a, Color.parseColor("#80FF0000")) // 빨간색
                 } else {
-                    hideGeoJsonLayer("intb_anml_a")
+                    hideRestrictedAreas(Color.parseColor("#80FF0000"))
                 }
             }
         }
@@ -414,9 +416,9 @@ class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.Con
         checkBox3.setOnCheckedChangeListener { _, isChecked ->
             googleMap?.let { map ->
                 if (isChecked) {
-                    loadGeoJsonFile(map, this, R.raw.mammalia, "mammalia", Color.parseColor("#80FFA500")) // 주황색
+                    loadGeoJsonFile(map, this, R.raw.mammalia,  Color.parseColor("#80FFA500")) // 주황색
                 } else {
-                    hideGeoJsonLayer("mammalia")
+                    hideRestrictedAreas(Color.parseColor("#80FFA500"))
                 }
             }
         }
@@ -425,9 +427,9 @@ class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.Con
         checkBox4.setOnCheckedChangeListener { _, isChecked ->
             googleMap?.let { map ->
                 if (isChecked) {
-                    loadGeoJsonFile(map, this, R.raw.prtwt_surface, "prtwt_surface", Color.parseColor("#8000FF00")) // 녹색
+                    loadGeoJsonFile(map, this, R.raw.prtwt_surface, Color.parseColor("#8000FF00")) // 녹색
                 } else {
-                    hideGeoJsonLayer("prtwt_surface")
+                    hideRestrictedAreas(Color.parseColor("#8000FF00"))
                 }
             }
         }
@@ -436,9 +438,9 @@ class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.Con
         checkBox5.setOnCheckedChangeListener { _, isChecked ->
             googleMap?.let { map ->
                 if (isChecked) {
-                    loadGeoJsonFile(map, this, R.raw.pwtrs_a, "pwtrs_a", Color.parseColor("#800000FF")) // 파란색
+                    loadGeoJsonFile(map, this, R.raw.pwtrs_a, Color.parseColor("#800000FF")) // 파란색
                 } else {
-                    hideGeoJsonLayer("pwtrs_a")
+                    hideRestrictedAreas(Color.parseColor("#800000FF"))
                 }
             }
         }
@@ -447,9 +449,9 @@ class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.Con
         checkBox6.setOnCheckedChangeListener { _, isChecked ->
             googleMap?.let { map ->
                 if (isChecked) {
-                    loadGeoJsonFile(map, this, R.raw.reptile, "reptile", Color.parseColor("#80FFFF00")) // 노란색
+                    loadGeoJsonFile(map, this, R.raw.reptile, Color.parseColor("#80FFFF00")) // 노란색
                 } else {
-                    hideGeoJsonLayer("reptile")
+                    hideRestrictedAreas(Color.parseColor("#80FFFF00"))
                 }
             }
         }
@@ -458,9 +460,9 @@ class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.Con
         checkBox7.setOnCheckedChangeListener { _, isChecked ->
             googleMap?.let { map ->
                 if (isChecked) {
-                    loadGeoJsonFile(map, this, R.raw.seaweed, "seaweed", Color.parseColor("#80800080")) // 보라색
+                    loadGeoJsonFile(map, this, R.raw.seaweed, Color.parseColor("#80800080")) // 보라색
                 } else {
-                    hideGeoJsonLayer("seaweed")
+                    hideRestrictedAreas(Color.parseColor("#80800080"))
                 }
             }
         }
@@ -469,9 +471,9 @@ class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.Con
         checkBox8.setOnCheckedChangeListener { _, isChecked ->
             googleMap?.let { map ->
                 if (isChecked) {
-                    loadGeoJsonFile(map, this, R.raw.wld_lvb_pzn_a, "wld_lvb_pzn_a", Color.parseColor("#8000FFFF")) // 청록색
+                    loadGeoJsonFile(map, this, R.raw.wld_lvb_pzn_a, Color.parseColor("#8000FFFF")) // 청록색
                 } else {
-                    hideGeoJsonLayer("wld_lvb_pzn_a")
+                    hideRestrictedAreas(Color.parseColor("#8000FFFF"))
                 }
             }
         }
@@ -480,9 +482,9 @@ class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.Con
         checkBox9.setOnCheckedChangeListener { _, isChecked ->
             googleMap?.let { map ->
                 if (isChecked) {
-                    loadGeoJsonFile(map, this, R.raw.fish, "fish", Color.parseColor("#80FF4500")) // 오렌지색
+                    loadGeoJsonFile(map, this, R.raw.fish, Color.parseColor("#80FF4500")) // 오렌지색
                 } else {
-                    hideGeoJsonLayer("fish")
+                    hideRestrictedAreas(Color.parseColor("#80FF4500"))
                 }
             }
         }
@@ -609,6 +611,10 @@ class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.Con
         if (marker != null) {
             markerMap.getOrPut(markerData.bno) { mutableListOf() }.add(marker)
             markerDataMap[marker] = markerData
+            // markersList에 마커를 추가
+            markersList.add(marker)
+            Log.d("MarkerInitialization", "Marker added to markersList: ${marker.position}")
+
         }
     }
 
@@ -707,6 +713,8 @@ class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.Con
         // 마커가 성공적으로 추가되면 리스트에 저장하고 카운터를 증가시킵니다.
         if (marker != null) {
             markersList.add(marker)
+            Log.d("MarkerInitialization", "Marker added: ${marker.position}")
+
             markerCounter++
             marker.showInfoWindow() // InfoWindow를 바로 표시
         }
@@ -1064,103 +1072,106 @@ class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.Con
         }
     }
 
-    private fun hideRestrictedAreas() {
+    // 특정 규제 구역을 삭제하는 함수 (layerKey 없이)
+    private fun hideRestrictedAreas(polygonColor: Int) {
+        // polygonList에서 해당 색상과 일치하는 폴리곤만 삭제
+        val polygonsToRemove = polygonList.filter { polygon ->
+            polygon.fillColor == polygonColor // 색상으로 폴리곤을 구분
+        }
+
+        polygonsToRemove.forEach { polygon ->
+            polygon.remove() // 지도에서 폴리곤 삭제
+            polygonList.remove(polygon) // 리스트에서도 제거
+        }
+
+        // 리스트에서 해당 규제구역 삭제 후 상태 업데이트
+        isRestrictedAreaVisible = polygonList.isNotEmpty()
+    }
+
+    private fun hideRestrictedAreas1() {
         polygonList.forEach { it.remove() }
         polygonList.clear()
         polygonOptionsList.clear()
         isRestrictedAreaVisible = false
     }
 
-    private fun loadGeoJsonFile(googleMap: GoogleMap, context: Context, geoJsonResId: Int, layerKey: String, color: Int) {
+
+    private fun loadGeoJsonFile(googleMap: GoogleMap, context: Context, geoJsonResId: Int, color: Int) {
         CoroutineScope(Dispatchers.Main).launch {
             withContext(Dispatchers.IO) {
                 try {
                     val inputStream = context.resources.openRawResource(geoJsonResId)
                     val jsonStr = inputStream.bufferedReader().use { it.readText() }
                     val jsonObject = JSONObject(jsonStr)
-                    val geoJsonLayer = GeoJsonLayer(googleMap, jsonObject)
-
-                    // GeoJsonLayer를 저장해 둡니다.
-                    geoJsonLayers[layerKey] = geoJsonLayer
+                    val features = jsonObject.getJSONArray("features")
 
                     withContext(Dispatchers.Main) {
-                        geoJsonLayer.features.forEach { feature ->
-                            val style = GeoJsonPolygonStyle()
-                            style.fillColor = color
-                            style.strokeColor = Color.TRANSPARENT // 테두리 없애기
-                            style.strokeWidth = 0f // 테두리 두께 0
-                            feature.polygonStyle = style
-                            // 규제 구역 폴리곤을 polygonList에 추가
-//                     GeoJsonPolygon에 대해 polygonList에 추가
-                            val geometry = feature.geometry
-                            if (geometry is GeoJsonMultiPolygon) {
-                                // GeoJsonMultiPolygon의 각 Polygon을 순회
-                                geometry.polygons.forEach { polygonGeometry ->
+                        for (i in 0 until features.length()) {
+                            val feature = features.getJSONObject(i)
+                            val geometry = feature.getJSONObject("geometry")
+                            val type = geometry.getString("type")
+
+                            if (type == "MultiPolygon") {
+                                val coordinates = geometry.getJSONArray("coordinates")
+
+                                for (j in 0 until coordinates.length()) {
+                                    val polygonCoordinates = coordinates.getJSONArray(j).getJSONArray(0)
                                     val polygonOptions = PolygonOptions()
 
-                                    // 각 Polygon의 외곽 경계 좌표를 추가
-                                    polygonGeometry.outerBoundaryCoordinates.forEach { latLng ->
+                                    for (k in 0 until polygonCoordinates.length()) {
+                                        val coordinate = polygonCoordinates.getJSONArray(k)
+                                        val latLng = LatLng(coordinate.getDouble(1), coordinate.getDouble(0)) // [lng, lat] 순서
                                         polygonOptions.add(latLng)
                                     }
 
-                                    val polygon = googleMap?.addPolygon(polygonOptions)
-                                    polygon?.let { polygonList.add(it) }
+                                    polygonOptions.fillColor(color)
+                                    polygonOptions.strokeColor(Color.RED)
+                                    polygonOptions.strokeWidth(2f)
+
+                                    val polygon = googleMap.addPolygon(polygonOptions)
+                                    polygon?.let { polygonList.add(it) }  // 리스트에 폴리곤 추가
+
+                                    deleteMarkersInsidePolygon(polygon)
+
                                 }
                             }
-
                         }
-                        geoJsonLayer.addLayerToMap()
-                        // 마커 클릭 리스너를 다시 설정
-                        googleMap?.setOnMarkerClickListener { marker ->
-                            showCustomDialog(marker)
-                            true
-                        }
-
                     }
                 } catch (e: Exception) {
                     Log.e("GeoJson", "GeoJSON 파일을 불러오는 중 오류 발생", e)
                 }
             }
         }
-
-    // 작업 완료 후 토스트 메시지 표시
-        Toast.makeText(context, "GeoJSON 파일이 성공적으로 추가되었습니다.", Toast.LENGTH_SHORT).show()
-        isRegulatoryAreaVisible = true
-
     }
 
-    // 해당 레이어와 관련된 폴리곤을 제거하는 함수
-    private fun hideGeoJsonLayer(layerKey: String) {
-        geoJsonLayers[layerKey]?.let { layer ->
-            // 지도에서 레이어 제거
-            layer.removeLayerFromMap()
 
-            // polygonList에서 해당 레이어와 관련된 폴리곤 제거
-            val polygonsToRemove = polygonList.filter { polygon ->
-                // polygon이 레이어의 폴리곤과 일치하는지 확인하는 로직 필요
-                // 예시로 각 폴리곤의 경계 좌표를 비교해서 동일한 폴리곤을 찾습니다.
-                val featurePolygons = layer.features.flatMap { feature ->
-                    val geometry = feature.geometry
-                    if (geometry is GeoJsonMultiPolygon) {
-                        geometry.polygons.map { it.outerBoundaryCoordinates }
-                    } else emptyList()
-                }
-                featurePolygons.any { it == polygon.points }
+
+    // 폴리곤 내부에 있는 마커들을 찾아 삭제하는 함수
+    private fun deleteMarkersInsidePolygon(polygon: Polygon) {
+        val markersInsidePolygon = markersList.filter { marker ->
+            isMarkerInsidePolygon(marker.position, polygon)
+        }
+
+        // 마커 삭제 처리
+        markersInsidePolygon.forEach { marker ->
+            val mno = marker.tag as? Long
+            val bno = data?.bno
+            if (mno != null && bno != null) {
+                markerViewModel.deleteMarker(mno, bno) // 마커 삭제
+                marker.remove() // 지도에서 마커 제거
+                markerMap[bno]?.remove(marker)
+                markerDataMap.remove(marker)
             }
-
-            // 해당 폴리곤들을 지도에서 제거하고 리스트에서도 제거
-            polygonsToRemove.forEach { polygon ->
-                polygon.remove()
-                polygonList.remove(polygon)
-            }
-
-            // 레이어 삭제
-            geoJsonLayers.remove(layerKey)
-            Toast.makeText(this, "$layerKey 레이어가 제거되었습니다.", Toast.LENGTH_SHORT).show()
-        } ?: run {
-            Log.d("GeoJson", "$layerKey 레이어를 찾을 수 없습니다.")
         }
     }
+
+    // 마커가 폴리곤 내부에 있는지 확인하는 함수
+    private fun isMarkerInsidePolygon(markerPosition: LatLng, polygon: Polygon): Boolean {
+        val polygonLatLngList = polygon.points
+        return PolyUtil.containsLocation(markerPosition, polygonLatLngList, true)
+    }
+
+
 
     inner class DownloadTask : AsyncTask<String, Void, String>() {
         override fun doInBackground(vararg urls: String?): String {
@@ -1202,7 +1213,7 @@ class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.Con
                 val features = featureCollection.getJSONArray("features")
 
                 // 기존 폴리곤 삭제
-                hideRestrictedAreas()
+                hideRestrictedAreas1()
 
                 // 새로 로드된 폴리곤 추가
                 for (i in 0 until features.length()) {
@@ -1312,7 +1323,8 @@ class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.Con
         // 애니메이션 중 터치 이벤트를 차단하는 로직
         checkBoxLayout.setOnTouchListener { _, _ -> isAnimating }
     }
-//진석
+
+////진석
 
 // 수민
     // 애니메이션 설정 함수
