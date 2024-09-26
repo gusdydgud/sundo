@@ -63,48 +63,48 @@
             android:id="@+id/checkBox2"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="보호대상 해양생물 (intb_anml_a)" />
+            android:text="보호대상 해양생물" />
 
         <CheckBox
             android:id="@+id/checkBox3"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="해양 생물 보호 대상 (mammalia)" />
+            android:text="해양 생물 보호 대상" />
 
         <CheckBox
             android:id="@+id/checkBox4"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="수면 보호구역 (prwt_surface)" />
+            android:text="수면 보호구역" />
 
         <CheckBox
             android:id="@+id/checkBox5"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="담수 보호구역 (pwtrs_a)" />
+            android:text="담수 보호구역" />
 
         <CheckBox
             android:id="@+id/checkBox6"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="파충류 보호구역 (reptile)" />
+            android:text="파충류 보호구역" />
 
         <CheckBox
             android:id="@+id/checkBox7"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="해조류 보호구역 (seaweed)" />
+            android:text="해조류 보호구역" />
 
         <CheckBox
             android:id="@+id/checkBox8"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="해양 생태계 보호구역 (wld_lvb_pzn_a)" />
+            android:text="해양 생태계 보호구역" />
         <CheckBox
             android:id="@+id/checkBox9"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="어류 보호구역 (fish)" />
+            android:text="어류 보호구역" />
 
 
 

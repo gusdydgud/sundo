@@ -16,7 +16,13 @@ import com.example.liststart.view.MainActivity
 
 class SplashActivity : AppCompatActivity() {
 
-    private val CAMERA_REQUEST_CODE = 100
+    private val PERMISSION_REQUEST_CODE = 100
+
+    // 필요한 권한 배열 (카메라와 위치 권한)
+    private val REQUIRED_PERMISSIONS = arrayOf(
+        Manifest.permission.CAMERA,
+        Manifest.permission.ACCESS_FINE_LOCATION
+    )
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -31,30 +37,37 @@ class SplashActivity : AppCompatActivity() {
             .into(splashImage)
 
         // 권한 확인 및 요청
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) {
+        if (allPermissionsGranted()) {
             // 권한이 이미 허용되었을 경우 2초 후에 다음 화면으로 이동
             proceedToNextScreenWithDelay()
         } else {
             // 권한 요청
-            requestCameraPermission()
+            requestPermissions()
         }
     }
 
-    // 카메라 권한 요청
-    private fun requestCameraPermission() {
-        ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.CAMERA), CAMERA_REQUEST_CODE)
+    // 필요한 권한이 모두 허용되었는지 확인하는 함수
+    private fun allPermissionsGranted(): Boolean {
+        return REQUIRED_PERMISSIONS.all { permission ->
+            ContextCompat.checkSelfPermission(this, permission) == PackageManager.PERMISSION_GRANTED
+        }
+    }
+
+    // 카메라 및 위치 권한 요청
+    private fun requestPermissions() {
+        ActivityCompat.requestPermissions(this, REQUIRED_PERMISSIONS, PERMISSION_REQUEST_CODE)
     }
 
     // 권한 요청 결과 처리
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<String>, grantResults: IntArray) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-        if (requestCode == CAMERA_REQUEST_CODE) {
-            if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                // 권한이 허용된 경우 2초 후 다음 화면으로 이동
+        if (requestCode == PERMISSION_REQUEST_CODE) {
+            if (grantResults.isNotEmpty() && grantResults.all { it == PackageManager.PERMISSION_GRANTED }) {
+                // 모든 권한이 허용된 경우 2초 후 다음 화면으로 이동
                 proceedToNextScreenWithDelay()
             } else {
                 // 권한이 거부된 경우 앱 종료
-                Toast.makeText(this, "카메라 권한이 필요합니다. 앱을 종료합니다.", Toast.LENGTH_LONG).show()
+                Toast.makeText(this, "카메라 및 위치 권한이 필요합니다. 앱을 종료합니다.", Toast.LENGTH_LONG).show()
                 finish() // 앱 종료
             }
         }
@@ -70,7 +83,6 @@ class SplashActivity : AppCompatActivity() {
     // 다음 화면으로 이동하는 함수
     private fun proceedToNextScreen() {
         val intent = Intent(this, MainActivity::class.java)
-        intent.putExtra("unity", "some_value")  // 여기에 문자열 값을 명시적으로 전달
         startActivity(intent)
         finish() // SplashActivity 종료
     }

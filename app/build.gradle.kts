@@ -59,6 +59,12 @@ dependencies {
     kapt(libs.glideCompiler)
     implementation(project(":unityLibrary"))
 
+    // Room DB
+    implementation (libs.androidx.room.runtime)
+    annotationProcessor(libs.androidx.room.room.compiler)
+    kapt(libs.androidx.room.room.compiler)
+    implementation(libs.androidx.room.ktx)
+
     implementation(libs.retrofit)
     implementation(libs.converter.gson)
     implementation(libs.androidx.lifecycle.viewmodel.ktx)
