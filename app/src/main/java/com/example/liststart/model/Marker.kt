@@ -6,8 +6,8 @@ import kotlinx.parcelize.Parcelize
 @Parcelize
 data class Marker(
     val mno: Long,
-    val regdate: String,
-    var update: String,
+    val regdate: String?,
+    var update: String?,
     var degree: Long,
     var latitude: Double,
     var longitude: Double,

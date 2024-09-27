@@ -13,8 +13,7 @@ import retrofit2.converter.gson.GsonConverterFactory
 
 object Constants {
 
-
-    private const val BASE_URL = "http://172.30.1.44:8585/turbine/api/" //이거 아이피
+    private const val BASE_URL = "http://192.168.45.107:8585/turbine/api/" //이거 아이피
 
     // GSON 인스턴스
     private val gson = GsonBuilder()

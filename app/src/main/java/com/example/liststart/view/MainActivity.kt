@@ -27,6 +27,11 @@ import com.example.liststart.datasource.DataSourceProvider
 import com.example.liststart.model.Business
 import com.example.liststart.util.Constants
 import com.example.liststart.viewmodel.BusinessViewModel
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.io.IOException
 
 const val TAG = "myLog"
 
@@ -41,7 +46,8 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
-
+        // DataSourceProvider 초기화
+        DataSourceProvider.init(this)
         // ViewModel 초기화
         val viewModelFactory = DataSourceProvider.businessViewModelFactory
         businessViewModel = ViewModelProvider(this, viewModelFactory).get(BusinessViewModel::class.java)
@@ -116,11 +122,7 @@ class MainActivity : AppCompatActivity() {
 
     // 초기 비즈니스 데이터 로드
     private fun loadInitialBusinessData() {
-        if (Constants.isNetworkAvailable(this)) {
-            businessViewModel.loadBusinessList() // 초기 데이터 로드
-        } else {
-            Toast.makeText(this, "네트워크 연결이 필요합니다.", Toast.LENGTH_SHORT).show()
-        }
+        businessViewModel.loadBusinessList()
     }
 
     // 아이템 클릭 처리
@@ -142,12 +144,17 @@ class MainActivity : AppCompatActivity() {
             customDialog.dismiss()
         }
 
+        // 추가 다이얼로그에서 비즈니스 추가 시 ViewModel을 통해 리스트 업데이트
         dialogBinding.dialogConfirm.setOnClickListener {
             val title = dialogBinding.addEditText.text.toString()
             if (title.isBlank()) {
                 dialogBinding.addEditText.error = "사업 이름을 입력하세요"
             } else {
-                businessViewModel.addBusiness(Business(title = title))
+                val newBusiness = Business(title = title)
+                businessViewModel.addBusiness(newBusiness)
+
+                // 추가 후 바로 리스트 업데이트
+                businessViewModel.loadBusinessList()
                 customDialog.dismiss()
             }
         }

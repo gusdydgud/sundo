@@ -203,7 +203,7 @@ class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.Con
 
         // 캐시 초기화
         markerCache.clear()
-
+        DataSourceProvider.init(this)
         // 인텐트로 전달된 제목 데이터 받기
         data = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             intent?.getParcelableExtra("data", Business::class.java)

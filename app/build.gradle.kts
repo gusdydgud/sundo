@@ -1,8 +1,11 @@
+import org.jetbrains.kotlin.storage.CacheResetOnProcessCanceled.enabled
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     id("kotlin-parcelize")
-    kotlin("kapt")
+    id ("kotlin-android")
+    id ("kotlin-kapt")
 }
 
 android {
@@ -17,7 +20,7 @@ android {
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-        multiDexEnabled= true
+        multiDexEnabled = true
     }
 
     buildTypes {
@@ -29,6 +32,7 @@ android {
             )
         }
     }
+
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_1_8
         targetCompatibility = JavaVersion.VERSION_1_8
@@ -42,8 +46,8 @@ android {
 
 dependencies {
     implementation(libs.android.maps.utils)
-    implementation (libs.proj4j)
-    implementation (libs.kotlinx.coroutines.android)
+    implementation(libs.proj4j)
+    implementation(libs.kotlinx.coroutines.android)
 
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.appcompat)
@@ -60,10 +64,11 @@ dependencies {
     implementation(project(":unityLibrary"))
 
     // Room DB
-    implementation (libs.androidx.room.runtime)
-    annotationProcessor(libs.androidx.room.room.compiler)
-    kapt(libs.androidx.room.room.compiler)
-    implementation(libs.androidx.room.ktx)
+    implementation ("androidx.room:room-runtime:2.6.1")
+    annotationProcessor ("androidx.room:room-compiler:2.6.1")
+    kapt ("androidx.room:room-compiler:2.6.1")// 코틀린 확장 기능
+
+    implementation ("androidx.room:room-ktx:2.4.2")
 
     implementation(libs.retrofit)
     implementation(libs.converter.gson)
@@ -71,7 +76,7 @@ dependencies {
     implementation(libs.androidx.lifecycle.livedata.ktx)
     implementation(libs.androidx.activity.ktx)
 
-    //test
+    // Test dependencies
     testImplementation(libs.mockwebserver)
     testImplementation(libs.junit)
 }
