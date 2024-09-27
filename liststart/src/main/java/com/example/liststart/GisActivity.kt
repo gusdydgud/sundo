@@ -643,10 +643,10 @@ class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.Con
             googleMap?.moveCamera(CameraUpdateFactory.newLatLngZoom(firstMarkerPosition, 15f))
 
             // 딜레이를 두고 플래그 업데이트
-//            Handler(Looper.getMainLooper()).postDelayed({
-//                isInitialMarkerLoaded = true
-//                Log.d("GisActivity", "isInitialMarkerLoaded set to: $isInitialMarkerLoaded")
-//            }, 5000)
+            Handler(Looper.getMainLooper()).postDelayed({
+                isInitialMarkerLoaded = true
+                Log.d("GisActivity", "isInitialMarkerLoaded set to: $isInitialMarkerLoaded")
+            }, 500)
         } else {
             Log.d("GisActivity", "No valid markers available or already moved to initial marker.")
         }
@@ -696,12 +696,8 @@ class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.Con
         // 3. ViewModel에서 마커 리스트가 로드된 후 첫 번째 마커로 이동
         markerViewModel.markerList.observe(this) { markerList ->
             if (markerList.isNotEmpty()) {
-                moveToFirstMarkerIfNeeded(markerList)
-
-                // 마커 추가
-                markerList.forEach { markerData ->
-                    addMarkerToMap(markerData)
-                }
+                // 첫 번째 마커 좌표로 지도 이동
+//                moveToFirstMarkerIfNeeded(markerList)
             } else {
                 Log.d("GisActivity", "No markers found.")
             }
