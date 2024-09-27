@@ -16,6 +16,11 @@ class MarkerRepository(private val markerDao: MarkerDao) {
         return markerDao.getMarkersForBusiness(bno)
     }
 
+    // mno와 bno로 특정 마커를 조회하는 함수
+    fun getMarkerByMnoBno(mno: Long, bno: Long): Marker? {
+        return markerDao.getMarkerByMnoBno(mno, bno)
+    }
+
     // 마커 추가 또는 업데이트 함수
     suspend fun addMarker(marker: Marker): Long {
         return markerDao.addMarker(marker)

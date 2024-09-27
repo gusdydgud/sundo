@@ -13,8 +13,8 @@ class BusinessRepository(private val businessDao: BusinessDao) {
     }
 
     // 사업체 추가 함수
-    suspend fun insertBusiness(business: Business) {
-        businessDao.addBusiness(business)
+    suspend fun insertBusiness(business: Business): Long {
+        return businessDao.addBusiness(business)  // 삽입된 bno 반환
     }
 
     // 여러 사업체 삭제 함수 (하나 이상의 사업체 삭제를 처리)

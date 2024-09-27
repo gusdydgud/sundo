@@ -10,6 +10,7 @@ import android.widget.TextView
 import androidx.recyclerview.widget.RecyclerView
 import com.example.liststart.R
 import com.example.liststart.model.Business
+import com.example.liststart.view.TAG
 
 class BusinessAdapter(
     private var isGisActivity: Boolean,
@@ -35,6 +36,8 @@ class BusinessAdapter(
 
     override fun onBindViewHolder(holder: BusinessViewHolder, position: Int) {
         val item = businessList[position]
+
+        Log.d(TAG, "onBindViewHolder: $item")
 
         holder.titleText.text = item.title
         holder.dateText.text = item.regdate

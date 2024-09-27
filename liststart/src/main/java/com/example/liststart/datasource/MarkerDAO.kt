@@ -22,4 +22,7 @@ interface MarkerDao {
 
     @Update
     suspend fun updateMarker(marker: Marker): Int // 마커 업데이트
+    // mno와 bno로 특정 마커를 조회하는 메서드 추가
+    @Query("SELECT * FROM marker WHERE mno = :mno AND bno = :bno LIMIT 1")
+    fun getMarkerByMnoBno(mno: Long, bno: Long): Marker? // mno와 bno로 마커 조회
 }

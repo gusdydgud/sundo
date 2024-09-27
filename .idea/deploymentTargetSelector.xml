@@ -2,13 +2,13 @@
 <project version="4">
   <component name="deploymentTargetSelector">
     <selectionStates>
-      <SelectionState runConfigName="ch19_map">
+      <SelectionState runConfigName="liststart">
         <option name="selectionMode" value="DROPDOWN" />
       </SelectionState>
       <SelectionState runConfigName="app">
         <option name="selectionMode" value="DROPDOWN" />
       </SelectionState>
-      <SelectionState runConfigName="liststart">
+      <SelectionState runConfigName="ch19_map">
         <option name="selectionMode" value="DROPDOWN" />
       </SelectionState>
     </selectionStates>

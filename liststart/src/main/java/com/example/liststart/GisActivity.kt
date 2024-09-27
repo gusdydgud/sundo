@@ -11,6 +11,8 @@ import android.location.Location
 import android.os.AsyncTask
 import android.os.Build
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.util.Log
 import com.google.maps.android.data.geojson.GeoJsonLayer
 import android.view.LayoutInflater
@@ -37,6 +39,7 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.example.liststart.adapter.BusinessAdapter
 import com.example.liststart.datasource.DataSourceProvider
+import com.example.liststart.datasource.MarkerDao
 import com.example.liststart.model.Business
 import com.example.liststart.util.Constants
 import com.example.liststart.view.TAG
@@ -56,9 +59,11 @@ import com.google.android.gms.maps.model.MarkerOptions
 import com.google.android.gms.maps.model.Polygon
 import com.google.android.gms.maps.model.PolygonOptions
 import com.google.android.gms.tasks.OnSuccessListener
+import com.google.maps.android.PolyUtil
 import com.google.maps.android.data.geojson.GeoJsonMultiPolygon
 import com.google.maps.android.data.geojson.GeoJsonPolygon
 import com.google.maps.android.data.geojson.GeoJsonPolygonStyle
+import com.google.maps.android.geometry.Point
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -68,7 +73,6 @@ import java.io.BufferedReader
 import java.io.InputStreamReader
 import java.net.HttpURLConnection
 import java.net.URL
-//import com.unity3d.player.UnityPlayerActivity
 
 class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.ConnectionCallbacks, GoogleApiClient.OnConnectionFailedListener {
 
@@ -84,7 +88,6 @@ class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.Con
     private lateinit var checkBoxLayout: LinearLayout
     private var isCheckBoxVisible = false
     private var polygonOptionsList: MutableList<PolygonOptions> = mutableListOf()
-
 
     // UI 요소
     private lateinit var centerMarkerPreview: ImageView // 화면 가운데 미리보기 마커
@@ -119,7 +122,7 @@ class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.Con
     private lateinit var businessViewModel: BusinessViewModel // 비즈니스 ViewModel
     private lateinit var markerViewModel: MarkerViewModel // 마커 ViewModel
 
-// 수민
+    // 수민
     // 마커와 비즈니스 ID를 매핑할 Map 추가
     private val markerMap = mutableMapOf<Long, MutableList<Marker>>()
     // 마커 데이터를 캐싱할 Map 추가
@@ -235,11 +238,13 @@ class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.Con
             onItemClick = { item -> Log.d("rootClick", "onCreate: $item") },  // 아이템 클릭 이벤트 처리
             onCheckBoxClick = { item -> item.bno?.let { bno ->
                 if (item.isChecked) {
-                    markerViewModel.loadMarkerListFromDb(bno) // 로컬 DB에서 마커 리스트 불러오기
+                    // 체크박스가 체크되었을 때 마커 추가
+                    markerViewModel.loadMarkerListFromDb(bno)
                 } else {
+                    // 체크박스가 해제되었을 때 마커 제거
                     removeMarkersForBusiness(bno)
                 }
-                }
+            }
             }  // 체크박스 클릭 이벤트 처리
         )
 
@@ -247,7 +252,7 @@ class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.Con
 
         // 전달된 사업의 마커를 로드하고 지도에 표시
         data?.bno?.let { initialBno ->
-            markerViewModel.loadMarkerListFromDb(initialBno) // 로컬 DB에서 마커 리스트 불러오기
+            markerViewModel.loadMarkerListFromDb(initialBno)
         }
 
         markerViewModel.markerList.observe(this) { updatedMarkerList ->
@@ -295,8 +300,9 @@ class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.Con
                     }
                 }
             }
+            Log.d("GisActivity", "Updated marker list size: ${updatedMarkerList.size}")
 
-            // 추가된 부분: 제일 먼저 찍힌 마커로 카메라 이동
+            // 첫 번째 마커를 지도 중심으로 이동
             moveToFirstMarkerIfNeeded(updatedMarkerList)
         }
 
@@ -320,10 +326,12 @@ class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.Con
         // 네트워크 상태 확인 후 데이터 로딩
         if (Constants.isNetworkAvailable(this)) {
             data?.let { currentBusiness ->
-                businessViewModel.loadBusinessListFromDbExcluding(currentBusiness) // 로컬 DB에서 사업 리스트 불러오기
+                // 현재 선택된 사업지를 제외한 사업지 목록 로드
+                businessViewModel.loadBusinessListFromDbExcluding(currentBusiness)
             }
+            // bno가 null이 아닌 경우에만 마커 로딩
             data?.bno?.let { bno ->
-                markerViewModel.loadMarkerListFromDb(bno) // 로컬 DB에서 마커 리스트 불러오기
+                markerViewModel.loadMarkerListFromDb(bno)
             } ?: run {
                 Toast.makeText(this, "사업 정보가 없습니다.", Toast.LENGTH_SHORT).show()
             }
@@ -391,7 +399,7 @@ class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.Con
                 loadDevelopmentRestrictedAreas()
             } else {
                 // 개발제한구역 숨기기
-                hideRestrictedAreas()
+                hideRestrictedAreas1()
             }
         }
 
@@ -399,9 +407,9 @@ class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.Con
         checkBox2.setOnCheckedChangeListener { _, isChecked ->
             googleMap?.let { map ->
                 if (isChecked) {
-                    loadGeoJsonFile(map, this, R.raw.intb_anml_a, "intb_anml_a", Color.parseColor("#80FF0000")) // 빨간색
+                    loadGeoJsonFile(map, this, R.raw.intb_anml_a, Color.parseColor("#80FF0000")) // 빨간색
                 } else {
-                    hideGeoJsonLayer("intb_anml_a")
+                    hideRestrictedAreas(Color.parseColor("#80FF0000"))
                 }
             }
         }
@@ -410,9 +418,9 @@ class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.Con
         checkBox3.setOnCheckedChangeListener { _, isChecked ->
             googleMap?.let { map ->
                 if (isChecked) {
-                    loadGeoJsonFile(map, this, R.raw.mammalia, "mammalia", Color.parseColor("#80FFA500")) // 주황색
+                    loadGeoJsonFile(map, this, R.raw.mammalia,  Color.parseColor("#80FFA500")) // 주황색
                 } else {
-                    hideGeoJsonLayer("mammalia")
+                    hideRestrictedAreas(Color.parseColor("#80FFA500"))
                 }
             }
         }
@@ -421,9 +429,9 @@ class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.Con
         checkBox4.setOnCheckedChangeListener { _, isChecked ->
             googleMap?.let { map ->
                 if (isChecked) {
-                    loadGeoJsonFile(map, this, R.raw.prtwt_surface, "prtwt_surface", Color.parseColor("#8000FF00")) // 녹색
+                    loadGeoJsonFile(map, this, R.raw.prtwt_surface, Color.parseColor("#8000FF00")) // 녹색
                 } else {
-                    hideGeoJsonLayer("prtwt_surface")
+                    hideRestrictedAreas(Color.parseColor("#8000FF00"))
                 }
             }
         }
@@ -432,9 +440,9 @@ class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.Con
         checkBox5.setOnCheckedChangeListener { _, isChecked ->
             googleMap?.let { map ->
                 if (isChecked) {
-                    loadGeoJsonFile(map, this, R.raw.pwtrs_a, "pwtrs_a", Color.parseColor("#800000FF")) // 파란색
+                    loadGeoJsonFile(map, this, R.raw.pwtrs_a, Color.parseColor("#800000FF")) // 파란색
                 } else {
-                    hideGeoJsonLayer("pwtrs_a")
+                    hideRestrictedAreas(Color.parseColor("#800000FF"))
                 }
             }
         }
@@ -443,9 +451,9 @@ class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.Con
         checkBox6.setOnCheckedChangeListener { _, isChecked ->
             googleMap?.let { map ->
                 if (isChecked) {
-                    loadGeoJsonFile(map, this, R.raw.reptile, "reptile", Color.parseColor("#80FFFF00")) // 노란색
+                    loadGeoJsonFile(map, this, R.raw.reptile, Color.parseColor("#80FFFF00")) // 노란색
                 } else {
-                    hideGeoJsonLayer("reptile")
+                    hideRestrictedAreas(Color.parseColor("#80FFFF00"))
                 }
             }
         }
@@ -454,9 +462,9 @@ class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.Con
         checkBox7.setOnCheckedChangeListener { _, isChecked ->
             googleMap?.let { map ->
                 if (isChecked) {
-                    loadGeoJsonFile(map, this, R.raw.seaweed, "seaweed", Color.parseColor("#80800080")) // 보라색
+                    loadGeoJsonFile(map, this, R.raw.seaweed, Color.parseColor("#80800080")) // 보라색
                 } else {
-                    hideGeoJsonLayer("seaweed")
+                    hideRestrictedAreas(Color.parseColor("#80800080"))
                 }
             }
         }
@@ -465,9 +473,9 @@ class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.Con
         checkBox8.setOnCheckedChangeListener { _, isChecked ->
             googleMap?.let { map ->
                 if (isChecked) {
-                    loadGeoJsonFile(map, this, R.raw.wld_lvb_pzn_a, "wld_lvb_pzn_a", Color.parseColor("#8000FFFF")) // 청록색
+                    loadGeoJsonFile(map, this, R.raw.wld_lvb_pzn_a, Color.parseColor("#8000FFFF")) // 청록색
                 } else {
-                    hideGeoJsonLayer("wld_lvb_pzn_a")
+                    hideRestrictedAreas(Color.parseColor("#8000FFFF"))
                 }
             }
         }
@@ -476,9 +484,9 @@ class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.Con
         checkBox9.setOnCheckedChangeListener { _, isChecked ->
             googleMap?.let { map ->
                 if (isChecked) {
-                    loadGeoJsonFile(map, this, R.raw.fish, "fish", Color.parseColor("#80FF4500")) // 오렌지색
+                    loadGeoJsonFile(map, this, R.raw.fish, Color.parseColor("#80FF4500")) // 오렌지색
                 } else {
-                    hideGeoJsonLayer("fish")
+                    hideRestrictedAreas(Color.parseColor("#80FF4500"))
                 }
             }
         }
@@ -519,10 +527,10 @@ class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.Con
                         latitude = currentCenter.latitude,
                         longitude = currentCenter.longitude,
                         bno = data?.bno ?: 0L,
-                        model = "모델1",
+                        model = "model_b",
                         title = (title ?: "사업체명") + " $markerCounter"
                     )
-                    saveMarkerToLocal(marker) // 로컬 DB에 저장
+                    saveMarkerToServer(marker)
                 }
             } else {
                 Toast.makeText(this, "현재 위치를 가져올 수 없습니다.", Toast.LENGTH_SHORT).show()
@@ -562,25 +570,33 @@ class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.Con
             }
         }
 
-        //AR camera
-//    val cameraBtn = findViewById<LinearLayout>(R.id.cameraBtn)
-//    cameraBtn.setOnClickListener{
-//        val markerDataList = ArrayList<Marker>() // 마커 데이터를 담을 리스트
-//
-//        for (marker in markersList) {
-//            val markerData = markerDataMap[marker] // 마커 데이터 매핑에서 해당 마커의 데이터를 가져옴
-//            markerData?.let {
-//                markerDataList.add(it) // Marker 객체를 리스트에 추가
+//        //AR camera
+//        val cameraBtn = findViewById<LinearLayout>(R.id.cameraBtn)
+//        cameraBtn.setOnClickListener {
+//            val markerDataList = ArrayList<MarkerDao>() // 마커 데이터를 담을 리스트
+//            for (marker in markerDataMap) {
+//                Log.d(TAG, "마커확인: ${marker.value}")
+//                marker.value.let {
+//                    val dto = MarkerDao(
+//                        it.latitude,
+//                        it.longitude,
+//                        it.title!!,
+//                        it.model,
+//                        it.degree,
+//                        it.bno
+//                    )
+//                    markerDataList.add(dto)
+//                }
 //            }
-//        }
+//            Log.d(TAG, "마커데이터확인: $markerDataList")
 //
-//        // Unity로 넘길 인텐트를 생성
-//        val intent = Intent(this, UnityPlayerActivity::class.java).apply {
-//            putParcelableArrayListExtra("markerDataList", markerDataList) // Marker 객체 리스트를 담아서 보냄
-//        }
+//            // Unity로 넘길 인텐트를 생성
+////            val intent = Intent(this, UnityPlayerActivity::class.java).apply {
+////                putParcelableArrayListExtra("markerDataList", markerDataList) // Parcelable로 넘김
+////            }
 //
-//        startActivity(intent)
-//    }
+//            startActivity(intent)
+//        }
     }
 
     // 특정 마커가 표시되어야 하는지 확인
@@ -605,18 +621,37 @@ class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.Con
         if (marker != null) {
             markerMap.getOrPut(markerData.bno) { mutableListOf() }.add(marker)
             markerDataMap[marker] = markerData
+            // markersList에 마커를 추가
+            markersList.add(marker)
+            Log.d("MarkerInitialization", "Marker added to markersList: ${marker.position}")
+
         }
     }
 
     // 첫 번째 마커로 이동
     private fun moveToFirstMarkerIfNeeded(markerList: List<com.example.liststart.model.Marker>) {
-        if (markerList.isNotEmpty() && !isInitialMarkerLoaded) {
-            // 제일 먼저 찍힌 마커의 좌표로 카메라 이동
-            val firstMarkerPosition = LatLng(markerList.first().latitude, markerList.first().longitude)
+        Log.d("GisActivity", "moveToFirstMarkerIfNeeded called with markerList size: ${markerList.size}")
+
+        // 마커 리스트가 비어 있거나 좌표가 0, 0인 경우 필터링
+        val validMarkers = markerList.filter { it.latitude != 0.0 && it.longitude != 0.0 }
+
+        if (validMarkers.isNotEmpty() && !isInitialMarkerLoaded) {
+            val firstMarkerPosition = LatLng(validMarkers.first().latitude, validMarkers.first().longitude)
+            Log.d("GisActivity", "First marker coordinates: Lat: ${firstMarkerPosition.latitude}, Lng: ${firstMarkerPosition.longitude}")
+
+            // 지도 이동
             googleMap?.moveCamera(CameraUpdateFactory.newLatLngZoom(firstMarkerPosition, 15f))
-            isInitialMarkerLoaded = true
+
+            // 딜레이를 두고 플래그 업데이트
+            Handler(Looper.getMainLooper()).postDelayed({
+                isInitialMarkerLoaded = true
+                Log.d("GisActivity", "isInitialMarkerLoaded set to: $isInitialMarkerLoaded")
+            }, 1000)
+        } else {
+            Log.d("GisActivity", "No valid markers available or already moved to initial marker.")
         }
     }
+
 
     // 체크박스 해제 시 마커를 제거하는 함수
     private fun removeMarkersForBusiness(bno: Long) {
@@ -641,12 +676,8 @@ class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.Con
             true
         }
 
-        // lat와 long이 0일 경우 마커 리스트에서 첫 번째 마커로 이동
-        if (lat == 0.0 && long == 0.0) {
-            // 마커 로드 후 첫 번째 마커로 이동
-            moveToInitialMarker()
-        } else {
-            // lat와 long이 유효한 값일 경우 그 위치로 이동
+        // 1. 지도 이동: 전달된 사업 좌표로 이동 (lat, long이 0이 아닐 때)
+        if (lat != 0.0 && long != 0.0) {
             val location = LatLng(lat, long)
             val zoomLevel = 15f // 원하는 줌 레벨 설정
             googleMap?.moveCamera(CameraUpdateFactory.newLatLngZoom(location, zoomLevel))
@@ -657,11 +688,22 @@ class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.Con
             )?.showInfoWindow() // 마커를 추가할 때 InfoWindow를 바로 표시
         }
 
-        // 지도 중심 위치 업데이트 리스너
+        // 2. 지도 중심 위치 업데이트 리스너
         googleMap?.setOnCameraIdleListener {
             currentCenter = googleMap?.cameraPosition?.target
         }
+
+        // 3. ViewModel에서 마커 리스트가 로드된 후 첫 번째 마커로 이동
+        markerViewModel.markerList.observe(this) { markerList ->
+            if (markerList.isNotEmpty()) {
+                // 첫 번째 마커 좌표로 지도 이동
+                moveToFirstMarkerIfNeeded(markerList)
+            } else {
+                Log.d("GisActivity", "No markers found.")
+            }
+        }
     }
+
 
     private fun moveToCurrentLocation() {
         if (ContextCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_FINE_LOCATION)
@@ -708,6 +750,8 @@ class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.Con
         // 마커가 성공적으로 추가되면 리스트에 저장하고 카운터를 증가시킵니다.
         if (marker != null) {
             markersList.add(marker)
+            Log.d("MarkerInitialization", "Marker added: ${marker.position}")
+
             markerCounter++
             marker.showInfoWindow() // InfoWindow를 바로 표시
         }
@@ -886,8 +930,8 @@ class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.Con
     private fun setupModelSpinner(dialogView: View, selectedModel: String?) {
         val modelSpinner = dialogView.findViewById<Spinner>(R.id.spinner_model)
         val modelImageView = dialogView.findViewById<ImageView>(R.id.model_image)
-        val models = arrayOf("모델 1", "모델 2", "모델 3")
-        val modelImages = arrayOf(R.drawable.fan, R.drawable.fan, R.drawable.fan)
+        val models = arrayOf("WinDS3300", "DS205-8MW", "WinDS5500", "WinDS3000")
+        val modelImages = arrayOf(R.drawable.fan, R.drawable.fan, R.drawable.fan, R.drawable.fan)
 
         val adapter = ArrayAdapter(this, android.R.layout.simple_spinner_item, models)
         adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
@@ -966,7 +1010,13 @@ class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.Con
 
         // 선택된 모델을 가져오기
         val selectedModel = dialogView.findViewById<Spinner>(R.id.spinner_model).selectedItem.toString()
-
+        val modelData = when (selectedModel) {
+            "WinDS3300" -> "model_r"
+            "WinDS3000" -> "model_b"
+            "DS205-8MW" -> "model_g"
+            "WinDS5500" -> "model_y"
+            else -> null  // 또는 기본값을 설정할 수 있습니다.
+        }
         // 입력된 각도를 가져오기
         val degreeValue = dialogView.findViewById<EditText>(R.id.edit_angle).text.toString().toLongOrNull() ?: 0L
 
@@ -977,13 +1027,13 @@ class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.Con
 
         // 위도/경도 값 변경이 있는지 확인하고 업데이트
         if (isLatLngChanged && (newLatitude != oldLatitude || newLongitude != oldLongitude)) {
-            updateMarkerPosition(marker, newLatitude ?: 0.0, newLongitude ?: 0.0, newTitle, selectedModel, degreeValue)
+            updateMarkerPosition(marker, newLatitude ?: 0.0, newLongitude ?: 0.0, newTitle, modelData!!, degreeValue)
             alertDialog.dismiss()
         } else if (isDMSChanged) {
             val latDecimal = dmsToDecimal(degreesLat ?: 0.0, minutesLat ?: 0.0, secondsLat ?: 0.0)
             val longDecimal = dmsToDecimal(degreesLong ?: 0.0, minutesLong ?: 0.0, secondsLong ?: 0.0)
 
-            updateMarkerPosition(marker, latDecimal, longDecimal, newTitle, selectedModel, degreeValue)
+            updateMarkerPosition(marker, latDecimal, longDecimal, newTitle, modelData!!, degreeValue)
             alertDialog.dismiss()
         } else {
             Toast.makeText(this@GisActivity, "올바른 값을 입력하세요.", Toast.LENGTH_SHORT).show()
@@ -998,7 +1048,7 @@ class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.Con
 
         Toast.makeText(this@GisActivity, "마커가 업데이트되었습니다.", Toast.LENGTH_SHORT).show()
 
-        // 로컬 DB로 마커 정보 업데이트
+        // 서버로 마커 정보 업데이트
         val updatedMarker = com.example.liststart.model.Marker(
             mno = marker.tag as? Long ?: 0L,
             regdate = "", // 필요시 처리
@@ -1014,7 +1064,7 @@ class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.Con
         // 캐시에 저장
         markerCache[updatedMarker.mno] = updatedMarker
 
-        // 로컬 DB 업데이트 메서드 호출
+        // 서버 업데이트
         markerViewModel.updateMarker(updatedMarker)
     }
 
@@ -1024,19 +1074,10 @@ class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.Con
         if (markerMno != null && markerMno != 0L) {
             val bno = data?.bno
             if (bno != null) {
-                // 현재 마커의 bno가 선택된 사업체의 bno와 일치하는지 확인
-                if (markerDataMap[marker]?.bno == bno) {
-                    // Marker 객체를 생성하여 삭제 요청
-                    val markerToDelete = markerDataMap[marker] // markerDataMap에서 Marker 객체를 가져옴
-                    if (markerToDelete != null) {
-                        markerViewModel.deleteMarker(markerToDelete) // 마커 삭제 요청
-                        marker.remove() // 지도에서 마커 제거
-                        markerMap[bno]?.remove(marker) // 마커맵에서 제거
-                        markerDataMap.remove(marker) // 데이터 맵에서 제거
-                    }
-                } else {
-                    Toast.makeText(this, "이 마커는 삭제할 수 없습니다.", Toast.LENGTH_SHORT).show()
-                }
+                markerViewModel.deleteMarker(markerMno, bno) // 마커 삭제 요청
+                marker.remove() // 지도에서 마커 제거
+                markerMap[bno]?.remove(marker)
+                markerDataMap.remove(marker)
             }
         } else {
             Toast.makeText(this, "마커 정보가 잘못되었습니다.", Toast.LENGTH_SHORT).show()
@@ -1074,103 +1115,106 @@ class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.Con
         }
     }
 
-    private fun hideRestrictedAreas() {
+    // 특정 규제 구역을 삭제하는 함수 (layerKey 없이)
+    private fun hideRestrictedAreas(polygonColor: Int) {
+        // polygonList에서 해당 색상과 일치하는 폴리곤만 삭제
+        val polygonsToRemove = polygonList.filter { polygon ->
+            polygon.fillColor == polygonColor // 색상으로 폴리곤을 구분
+        }
+
+        polygonsToRemove.forEach { polygon ->
+            polygon.remove() // 지도에서 폴리곤 삭제
+            polygonList.remove(polygon) // 리스트에서도 제거
+        }
+
+        // 리스트에서 해당 규제구역 삭제 후 상태 업데이트
+        isRestrictedAreaVisible = polygonList.isNotEmpty()
+    }
+
+    private fun hideRestrictedAreas1() {
         polygonList.forEach { it.remove() }
         polygonList.clear()
         polygonOptionsList.clear()
         isRestrictedAreaVisible = false
     }
 
-    private fun loadGeoJsonFile(googleMap: GoogleMap, context: Context, geoJsonResId: Int, layerKey: String, color: Int) {
+
+    private fun loadGeoJsonFile(googleMap: GoogleMap, context: Context, geoJsonResId: Int, color: Int) {
         CoroutineScope(Dispatchers.Main).launch {
             withContext(Dispatchers.IO) {
                 try {
                     val inputStream = context.resources.openRawResource(geoJsonResId)
                     val jsonStr = inputStream.bufferedReader().use { it.readText() }
                     val jsonObject = JSONObject(jsonStr)
-                    val geoJsonLayer = GeoJsonLayer(googleMap, jsonObject)
-
-                    // GeoJsonLayer를 저장해 둡니다.
-                    geoJsonLayers[layerKey] = geoJsonLayer
+                    val features = jsonObject.getJSONArray("features")
 
                     withContext(Dispatchers.Main) {
-                        geoJsonLayer.features.forEach { feature ->
-                            val style = GeoJsonPolygonStyle()
-                            style.fillColor = color
-                            style.strokeColor = Color.TRANSPARENT // 테두리 없애기
-                            style.strokeWidth = 0f // 테두리 두께 0
-                            feature.polygonStyle = style
-                            // 규제 구역 폴리곤을 polygonList에 추가
-//                     GeoJsonPolygon에 대해 polygonList에 추가
-                            val geometry = feature.geometry
-                            if (geometry is GeoJsonMultiPolygon) {
-                                // GeoJsonMultiPolygon의 각 Polygon을 순회
-                                geometry.polygons.forEach { polygonGeometry ->
+                        for (i in 0 until features.length()) {
+                            val feature = features.getJSONObject(i)
+                            val geometry = feature.getJSONObject("geometry")
+                            val type = geometry.getString("type")
+
+                            if (type == "MultiPolygon") {
+                                val coordinates = geometry.getJSONArray("coordinates")
+
+                                for (j in 0 until coordinates.length()) {
+                                    val polygonCoordinates = coordinates.getJSONArray(j).getJSONArray(0)
                                     val polygonOptions = PolygonOptions()
 
-                                    // 각 Polygon의 외곽 경계 좌표를 추가
-                                    polygonGeometry.outerBoundaryCoordinates.forEach { latLng ->
+                                    for (k in 0 until polygonCoordinates.length()) {
+                                        val coordinate = polygonCoordinates.getJSONArray(k)
+                                        val latLng = LatLng(coordinate.getDouble(1), coordinate.getDouble(0)) // [lng, lat] 순서
                                         polygonOptions.add(latLng)
                                     }
 
-                                    val polygon = googleMap?.addPolygon(polygonOptions)
-                                    polygon?.let { polygonList.add(it) }
+                                    polygonOptions.fillColor(color)
+                                    polygonOptions.strokeColor(Color.RED)
+                                    polygonOptions.strokeWidth(2f)
+
+                                    val polygon = googleMap.addPolygon(polygonOptions)
+                                    polygon?.let { polygonList.add(it) }  // 리스트에 폴리곤 추가
+
+                                    deleteMarkersInsidePolygon(polygon)
+
                                 }
                             }
-
                         }
-                        geoJsonLayer.addLayerToMap()
-                        // 마커 클릭 리스너를 다시 설정
-                        googleMap?.setOnMarkerClickListener { marker ->
-                            showCustomDialog(marker)
-                            true
-                        }
-
                     }
                 } catch (e: Exception) {
                     Log.e("GeoJson", "GeoJSON 파일을 불러오는 중 오류 발생", e)
                 }
             }
         }
-
-    // 작업 완료 후 토스트 메시지 표시
-        Toast.makeText(context, "GeoJSON 파일이 성공적으로 추가되었습니다.", Toast.LENGTH_SHORT).show()
-        isRegulatoryAreaVisible = true
-
     }
 
-    // 해당 레이어와 관련된 폴리곤을 제거하는 함수
-    private fun hideGeoJsonLayer(layerKey: String) {
-        geoJsonLayers[layerKey]?.let { layer ->
-            // 지도에서 레이어 제거
-            layer.removeLayerFromMap()
 
-            // polygonList에서 해당 레이어와 관련된 폴리곤 제거
-            val polygonsToRemove = polygonList.filter { polygon ->
-                // polygon이 레이어의 폴리곤과 일치하는지 확인하는 로직 필요
-                // 예시로 각 폴리곤의 경계 좌표를 비교해서 동일한 폴리곤을 찾습니다.
-                val featurePolygons = layer.features.flatMap { feature ->
-                    val geometry = feature.geometry
-                    if (geometry is GeoJsonMultiPolygon) {
-                        geometry.polygons.map { it.outerBoundaryCoordinates }
-                    } else emptyList()
-                }
-                featurePolygons.any { it == polygon.points }
+
+    // 폴리곤 내부에 있는 마커들을 찾아 삭제하는 함수
+    private fun deleteMarkersInsidePolygon(polygon: Polygon) {
+        val markersInsidePolygon = markersList.filter { marker ->
+            isMarkerInsidePolygon(marker.position, polygon)
+        }
+
+        // 마커 삭제 처리
+        markersInsidePolygon.forEach { marker ->
+            val mno = marker.tag as? Long
+            val bno = data?.bno
+            if (mno != null && bno != null) {
+                markerViewModel.deleteMarker(mno, bno) // 마커 삭제
+                marker.remove() // 지도에서 마커 제거
+                markerMap[bno]?.remove(marker)
+                markerDataMap.remove(marker)
             }
-
-            // 해당 폴리곤들을 지도에서 제거하고 리스트에서도 제거
-            polygonsToRemove.forEach { polygon ->
-                polygon.remove()
-                polygonList.remove(polygon)
-            }
-
-            // 레이어 삭제
-            geoJsonLayers.remove(layerKey)
-            Toast.makeText(this, "$layerKey 레이어가 제거되었습니다.", Toast.LENGTH_SHORT).show()
-        } ?: run {
-            Log.d("GeoJson", "$layerKey 레이어를 찾을 수 없습니다.")
         }
     }
+
+    // 마커가 폴리곤 내부에 있는지 확인하는 함수
+    private fun isMarkerInsidePolygon(markerPosition: LatLng, polygon: Polygon): Boolean {
+        val polygonLatLngList = polygon.points
+        return PolyUtil.containsLocation(markerPosition, polygonLatLngList, true)
+    }
+
+
 
     inner class DownloadTask : AsyncTask<String, Void, String>() {
         override fun doInBackground(vararg urls: String?): String {
@@ -1212,7 +1256,7 @@ class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.Con
                 val features = featureCollection.getJSONArray("features")
 
                 // 기존 폴리곤 삭제
-                hideRestrictedAreas()
+                hideRestrictedAreas1()
 
                 // 새로 로드된 폴리곤 추가
                 for (i in 0 until features.length()) {
@@ -1322,9 +1366,10 @@ class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.Con
         // 애니메이션 중 터치 이벤트를 차단하는 로직
         checkBoxLayout.setOnTouchListener { _, _ -> isAnimating }
     }
-//진석
 
-// 수민
+////진석
+
+    // 수민
     // 애니메이션 설정 함수
     private fun animateRecyclerView(show: Boolean) {
         // 목표 translationY 값 설정
@@ -1380,7 +1425,7 @@ class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.Con
         markerViewModel.addMarker(
             marker,
             onSuccess = { savedMarker ->
-                Toast.makeText(this, "마커가 서버에 저장되었습니다.", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, "마커가 저장되었습니다.", Toast.LENGTH_SHORT).show()
 
                 // 저장 후 지도에 마커 추가
                 addMarkerToMap(savedMarker)
@@ -1390,31 +1435,10 @@ class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.Con
             }
         )
     }
-    private fun saveMarkerToLocal(marker: com.example.liststart.model.Marker) {
-        markerViewModel.addMarker(
-            marker,
-            onSuccess = { savedMarker ->
-                Toast.makeText(this, "마커가 로컬 DB에 저장되었습니다.", Toast.LENGTH_SHORT).show()
-                addMarkerToMap(savedMarker) // 저장 후 지도에 마커 추가
-            },
-            onFailure = { errorMessage ->
-                Toast.makeText(this, errorMessage, Toast.LENGTH_SHORT).show()
-            }
-        )
-    }
-    private fun moveToInitialMarker() {
-        // ViewModel을 통해 로드된 마커 리스트가 있을 때만 첫 번째 마커로 이동
-        markerViewModel.markerList.observe(this) { markerList ->
-            if (markerList.isNotEmpty() && !isInitialMarkerLoaded) {
-                // 제일 먼저 추가된 마커의 위치로 카메라 이동
-                val firstMarker = markerList.first()
-                val firstMarkerPosition = LatLng(firstMarker.latitude, firstMarker.longitude)
-                googleMap?.moveCamera(CameraUpdateFactory.newLatLngZoom(firstMarkerPosition, 15f))
-                isInitialMarkerLoaded = true
-            } else {
-                Toast.makeText(this, "불러올 마커가 없습니다.", Toast.LENGTH_SHORT).show()
-            }
-        }
+
+    override fun onResume() {
+        Log.d(TAG, "onResume: 유니티에서 돌아옴")
+        super.onResume()
     }
 
 }

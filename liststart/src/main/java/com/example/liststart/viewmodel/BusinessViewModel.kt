@@ -1,11 +1,13 @@
 package com.example.liststart.viewmodel
 
+import android.util.Log
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.liststart.model.Business
 import com.example.liststart.repository.BusinessRepository
+import com.example.liststart.view.TAG
 import kotlinx.coroutines.launch
 
 class BusinessViewModel(private val businessRepository: BusinessRepository) : ViewModel() {
@@ -43,9 +45,11 @@ class BusinessViewModel(private val businessRepository: BusinessRepository) : Vi
     fun addBusiness(business: Business) {
         viewModelScope.launch {
             try {
-                businessRepository.insertBusiness(business) // DB에 데이터 추가
-                businessItems.add(0, business)
-                _businessList.value = businessItems.toMutableList() // 업데이트된 리스트 반영
+                val newBusinessId = businessRepository.insertBusiness(business)  // 삽입된 bno 값 반환
+                val updatedBusiness = business.copy(bno = newBusinessId)  // 반환된 bno 값으로 업데이트
+
+                businessItems.add(0, updatedBusiness)  // 업데이트된 비즈니스 추가
+                _businessList.value = businessItems.toMutableList()  // 리스트 업데이트
             } catch (e: Exception) {
                 _error.value = "비즈니스 추가 중 오류가 발생했습니다: ${e.localizedMessage}"
             }

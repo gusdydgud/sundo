@@ -1,12 +1,15 @@
 package com.example.liststart.viewmodel
 
+import android.util.Log
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.liststart.model.Marker
 import com.example.liststart.repository.MarkerRepository
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class MarkerViewModel(private val markerRepository: MarkerRepository) : ViewModel() {
 
@@ -25,26 +28,19 @@ class MarkerViewModel(private val markerRepository: MarkerRepository) : ViewMode
     val updateResult: LiveData<String>
         get() = _updateResult
 
-    // 특정 사업(bno)에 대한 마커 목록 로드
-//    fun loadMarkerList(bno: Long) {
-//        viewModelScope.launch {
-//            try {
-//                markerRepository.getMarkersForBusiness(bno).observeForever { markers ->
-//                    _markerList.value = markers.toMutableList()  // LiveData 값을 수신하고 업데이트
-//                }
-//            } catch (e: Exception) {
-//                _error.postValue("마커 목록을 불러오는 중 오류 발생: ${e.localizedMessage}")
-//            }
-//        }
-//    }
     // 로컬 DB에서 특정 사업(bno)에 대한 마커 목록 로드
     fun loadMarkerListFromDb(bno: Long) {
         viewModelScope.launch {
             try {
                 markerRepository.getMarkersForBusinessFromDb(bno).observeForever { markers ->
+                    Log.d("MarkerViewModel", "Loaded markers from DB for bno: $bno, marker count: ${markers.size}")
+                    markers.forEach { marker ->
+                        Log.d("MarkerViewModel", "Marker details: mno = ${marker.mno}, latitude = ${marker.latitude}, longitude = ${marker.longitude}")
+                    }
                     _markerList.value = markers.toMutableList()  // LiveData 값을 수신하고 업데이트
                 }
             } catch (e: Exception) {
+                Log.e("MarkerViewModel", "Error loading markers from DB: ${e.localizedMessage}")
                 _error.postValue("로컬 DB에서 마커 목록을 불러오는 중 오류 발생: ${e.localizedMessage}")
             }
         }
@@ -70,23 +66,52 @@ class MarkerViewModel(private val markerRepository: MarkerRepository) : ViewMode
         }
     }
 
-    // mno로 마커 삭제
-    fun deleteMarker(marker: Marker) {
+    // mno와 bno를 받아서 Marker 객체를 조회한 후 삭제하는 함수
+    fun deleteMarker(mno: Long, bno: Long) {
         viewModelScope.launch {
             try {
-                val deletedCount = markerRepository.deleteMarkers(listOf(marker))
-                if (deletedCount > 0) {
-                    val updatedList = markerList.value?.toMutableList() ?: mutableListOf() // null일 경우 빈 리스트로 초기화
-                    updatedList.remove(marker)
-                    _markerList.postValue(updatedList) // LiveData 업데이트
-                } else {
-                    _error.postValue("마커 삭제 실패")
+                // 백그라운드 스레드에서 DB 작업 수행
+                withContext(Dispatchers.IO) {
+                    Log.d("MarkerViewModel", "Attempting to delete marker with mno: $mno and bno: $bno")
+
+                    val marker = markerRepository.getMarkerByMnoBno(mno, bno) // mno와 bno로 마커 객체 조회
+                    marker?.let {
+                        val deletedCount = markerRepository.deleteMarkers(listOf(it))
+                        if (deletedCount > 0) {
+                            // 마커가 삭제되었을 때, UI 업데이트는 메인 스레드에서 처리
+                            withContext(Dispatchers.Main) {
+                                val updatedList = markerList.value?.toMutableList() ?: mutableListOf()
+                                updatedList.remove(it)
+                                _markerList.postValue(updatedList) // LiveData 업데이트
+                                Log.d("MarkerViewModel", "Marker deleted successfully: mno = ${it.mno}, updated marker list size: ${updatedList.size}")
+                            }
+                        } else {
+                            // 삭제 실패 시 에러 메시지
+                            withContext(Dispatchers.Main) {
+                                Log.e("MarkerViewModel", "Failed to delete marker: mno = ${it.mno}")
+                                _error.postValue("마커 삭제 실패")
+                            }
+                        }
+                    } ?: run {
+                        // 마커를 찾을 수 없는 경우 에러 처리
+                        withContext(Dispatchers.Main) {
+                            Log.e("MarkerViewModel", "Marker not found: mno = $mno, bno = $bno")
+                            _error.postValue("마커를 찾을 수 없음")
+                        }
+                    }
                 }
             } catch (e: Exception) {
-                _error.postValue("오류 발생: ${e.localizedMessage}")
+                // 예외 처리
+                Log.e("MarkerViewModel", "Error while deleting marker: ${e.localizedMessage}", e)
+                withContext(Dispatchers.Main) {
+                    _error.postValue("오류 발생: ${e.localizedMessage}")
+                }
             }
         }
     }
+
+
+
 
     // 마커 업데이트
     fun updateMarker(marker: Marker) {

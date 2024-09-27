@@ -7,6 +7,7 @@ import android.os.Build
 import android.os.Bundle
 import android.text.Editable
 import android.text.TextWatcher
+import android.util.Log
 import android.view.View
 import android.view.WindowManager
 import android.widget.EditText
@@ -69,6 +70,7 @@ class MainActivity : AppCompatActivity() {
         // BusinessViewModel의 데이터를 관찰하여 RecyclerView 업데이트
         businessViewModel.businessList.observe(this) { businessList ->
             businessAdapter.updateList(businessList)
+
         }
 
         // 체크박스 가시성 상태 관찰
@@ -126,6 +128,7 @@ class MainActivity : AppCompatActivity() {
         // GIS 화면으로 이동
         val intent = Intent(this, GisActivity::class.java)
         intent.putExtra("data", data)
+        Log.d(TAG, "handleClick:$data "  )
         startActivity(intent)
     }
 
