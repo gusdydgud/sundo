@@ -643,10 +643,10 @@ class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.Con
             googleMap?.moveCamera(CameraUpdateFactory.newLatLngZoom(firstMarkerPosition, 15f))
 
             // 딜레이를 두고 플래그 업데이트
-            Handler(Looper.getMainLooper()).postDelayed({
-                isInitialMarkerLoaded = true
-                Log.d("GisActivity", "isInitialMarkerLoaded set to: $isInitialMarkerLoaded")
-            }, 1000)
+//            Handler(Looper.getMainLooper()).postDelayed({
+//                isInitialMarkerLoaded = true
+//                Log.d("GisActivity", "isInitialMarkerLoaded set to: $isInitialMarkerLoaded")
+//            }, 5000)
         } else {
             Log.d("GisActivity", "No valid markers available or already moved to initial marker.")
         }
@@ -696,8 +696,12 @@ class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.Con
         // 3. ViewModel에서 마커 리스트가 로드된 후 첫 번째 마커로 이동
         markerViewModel.markerList.observe(this) { markerList ->
             if (markerList.isNotEmpty()) {
-                // 첫 번째 마커 좌표로 지도 이동
                 moveToFirstMarkerIfNeeded(markerList)
+
+                // 마커 추가
+                markerList.forEach { markerData ->
+                    addMarkerToMap(markerData)
+                }
             } else {
                 Log.d("GisActivity", "No markers found.")
             }
@@ -1010,7 +1014,7 @@ class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.Con
 
         // 선택된 모델을 가져오기
         val selectedModel = dialogView.findViewById<Spinner>(R.id.spinner_model).selectedItem.toString()
-        val modelData = when (selectedModel) {
+        var modelData = when (selectedModel) {
             "WinDS3300" -> "model_r"
             "WinDS3000" -> "model_b"
             "DS205-8MW" -> "model_g"
@@ -1040,7 +1044,14 @@ class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.Con
         }
     }
     // 마커 위치 업데이트 (모델과 각도 포함)
-    private fun updateMarkerPosition(marker: Marker, latitude: Double, longitude: Double, title: String, model: String, degree: Long) {
+    private fun updateMarkerPosition(
+        marker: Marker,
+        latitude: Double,
+        longitude: Double,
+        title: String,
+        model: String,
+        degree: Long
+    ) {
         marker.position = LatLng(latitude, longitude)
         marker.title = title // 새 제목으로 마커의 title 업데이트
         marker.showInfoWindow() // InfoWindow를 갱신
@@ -1048,24 +1059,39 @@ class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.Con
 
         Toast.makeText(this@GisActivity, "마커가 업데이트되었습니다.", Toast.LENGTH_SHORT).show()
 
-        // 서버로 마커 정보 업데이트
-        val updatedMarker = com.example.liststart.model.Marker(
+        // 변환된 값을 캐시에 저장할 모델명
+        val modelForCache = when (model) {
+            "model_r" -> "WinDS3300"
+            "model_b" -> "WinDS3000"
+            "model_g" -> "DS205-8MW"
+            "model_y" -> "WinDS5500"
+            else -> model // 모델이 변환되지 않을 경우 원래 값을 유지
+        }
+
+        // 캐시에 저장할 Marker 객체
+        val cachedMarker = com.example.liststart.model.Marker(
             mno = marker.tag as? Long ?: 0L,
             regdate = "", // 필요시 처리
             update = "", // 필요시 처리
-            degree = degree, // 업데이트된 각도
+            degree = degree,
             latitude = latitude,
             longitude = longitude,
-            bno = data?.bno ?: 0L, // 사업 ID
-            model = model, // 선택한 모델
-            title = title // 새로 입력된 제목으로 업데이트
+            bno = data?.bno ?: 0L,
+            model = modelForCache, // 캐시에는 변환된 값을 저장
+            title = title
         )
 
         // 캐시에 저장
-        markerCache[updatedMarker.mno] = updatedMarker
+        markerCache[cachedMarker.mno] = cachedMarker
+
+
+        // 로컬 DB나 서버에 저장할 Marker 객체 (원래 모델 값을 유지)
+        val updatedMarkerForServer = cachedMarker.copy(
+            model = model // 서버에는 변환되지 않은 원래 값을 저장
+        )
 
         // 서버 업데이트
-        markerViewModel.updateMarker(updatedMarker)
+        markerViewModel.updateMarker(updatedMarkerForServer)
     }
 
     // 삭제 버튼 클릭 이벤트 처리
