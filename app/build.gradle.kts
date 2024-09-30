@@ -60,10 +60,11 @@ dependencies {
     implementation(project(":unityLibrary"))
 
     // Room DB
-    implementation (libs.androidx.room.runtime)
-    annotationProcessor(libs.androidx.room.room.compiler)
-    kapt(libs.androidx.room.room.compiler)
-    implementation(libs.androidx.room.ktx)
+    implementation ("androidx.room:room-runtime:2.6.1")
+    annotationProcessor ("androidx.room:room-compiler:2.6.1")
+    kapt ("androidx.room:room-compiler:2.6.1")// 코틀린 확장 기능
+
+    implementation ("androidx.room:room-ktx:2.4.2")
 
     implementation(libs.retrofit)
     implementation(libs.converter.gson)

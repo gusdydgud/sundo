@@ -11,6 +11,8 @@ import android.location.Location
 import android.os.AsyncTask
 import android.os.Build
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.util.Log
 import com.google.maps.android.data.geojson.GeoJsonLayer
 import android.view.LayoutInflater
@@ -37,6 +39,7 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.example.liststart.adapter.BusinessAdapter
 import com.example.liststart.datasource.DataSourceProvider
+import com.example.liststart.datasource.MarkerDao
 import com.example.liststart.model.Business
 import com.example.liststart.model.MarkerDTO
 import com.example.liststart.util.Constants
@@ -62,6 +65,7 @@ import com.google.maps.android.data.geojson.GeoJsonMultiPolygon
 import com.google.maps.android.data.geojson.GeoJsonPolygon
 import com.google.maps.android.data.geojson.GeoJsonPolygonStyle
 import com.google.maps.android.geometry.Point
+import com.unity3d.player.UnityPlayerActivity
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -71,7 +75,6 @@ import java.io.BufferedReader
 import java.io.InputStreamReader
 import java.net.HttpURLConnection
 import java.net.URL
-import com.unity3d.player.UnityPlayerActivity
 
 class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.ConnectionCallbacks, GoogleApiClient.OnConnectionFailedListener {
 
@@ -238,7 +241,7 @@ class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.Con
             onCheckBoxClick = { item -> item.bno?.let { bno ->
                 if (item.isChecked) {
                     // 체크박스가 체크되었을 때 마커 추가
-                    markerViewModel.loadMarkerList(bno)
+                    markerViewModel.loadMarkerListFromDb(bno)
                 } else {
                     // 체크박스가 해제되었을 때 마커 제거
                     removeMarkersForBusiness(bno)
@@ -251,7 +254,7 @@ class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.Con
 
         // 전달된 사업의 마커를 로드하고 지도에 표시
         data?.bno?.let { initialBno ->
-            markerViewModel.loadMarkerList(initialBno)
+            markerViewModel.loadMarkerListFromDb(initialBno)
         }
 
         markerViewModel.markerList.observe(this) { updatedMarkerList ->
@@ -299,6 +302,7 @@ class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.Con
                     }
                 }
             }
+            Log.d("GisActivity", "Updated marker list size: ${updatedMarkerList.size}")
 
             // 첫 번째 마커를 지도 중심으로 이동
             moveToFirstMarkerIfNeeded(updatedMarkerList)
@@ -325,11 +329,11 @@ class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.Con
         if (Constants.isNetworkAvailable(this)) {
             data?.let { currentBusiness ->
                 // 현재 선택된 사업지를 제외한 사업지 목록 로드
-                businessViewModel.loadBusinessListExcluding(currentBusiness)
+                businessViewModel.loadBusinessListFromDbExcluding(currentBusiness)
             }
             // bno가 null이 아닌 경우에만 마커 로딩
             data?.bno?.let { bno ->
-                markerViewModel.loadMarkerList(bno)
+                markerViewModel.loadMarkerListFromDb(bno)
             } ?: run {
                 Toast.makeText(this, "사업 정보가 없습니다.", Toast.LENGTH_SHORT).show()
             }
@@ -628,12 +632,28 @@ class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.Con
 
     // 첫 번째 마커로 이동
     private fun moveToFirstMarkerIfNeeded(markerList: List<com.example.liststart.model.Marker>) {
-        if (markerList.isNotEmpty() && !isInitialMarkerLoaded) {
-            val firstMarkerPosition = LatLng(markerList.first().latitude, markerList.first().longitude)
+        Log.d("GisActivity", "moveToFirstMarkerIfNeeded called with markerList size: ${markerList.size}")
+
+        // 마커 리스트가 비어 있거나 좌표가 0, 0인 경우 필터링
+        val validMarkers = markerList.filter { it.latitude != 0.0 && it.longitude != 0.0 }
+
+        if (validMarkers.isNotEmpty() && !isInitialMarkerLoaded) {
+            val firstMarkerPosition = LatLng(validMarkers.first().latitude, validMarkers.first().longitude)
+            Log.d("GisActivity", "First marker coordinates: Lat: ${firstMarkerPosition.latitude}, Lng: ${firstMarkerPosition.longitude}")
+
+            // 지도 이동
             googleMap?.moveCamera(CameraUpdateFactory.newLatLngZoom(firstMarkerPosition, 15f))
-            isInitialMarkerLoaded = true
+
+            // 딜레이를 두고 플래그 업데이트
+            Handler(Looper.getMainLooper()).postDelayed({
+                isInitialMarkerLoaded = true
+                Log.d("GisActivity", "isInitialMarkerLoaded set to: $isInitialMarkerLoaded")
+            }, 700)
+        } else {
+            Log.d("GisActivity", "No valid markers available or already moved to initial marker.")
         }
     }
+
 
     // 체크박스 해제 시 마커를 제거하는 함수
     private fun removeMarkersForBusiness(bno: Long) {
@@ -658,7 +678,7 @@ class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.Con
             true
         }
 
-        // 지도 이동: 전달된 사업 좌표로 이동
+        // 1. 지도 이동: 전달된 사업 좌표로 이동 (lat, long이 0이 아닐 때)
         if (lat != 0.0 && long != 0.0) {
             val location = LatLng(lat, long)
             val zoomLevel = 15f // 원하는 줌 레벨 설정
@@ -670,11 +690,22 @@ class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.Con
             )?.showInfoWindow() // 마커를 추가할 때 InfoWindow를 바로 표시
         }
 
-        // 지도 중심 위치 업데이트 리스너
+        // 2. 지도 중심 위치 업데이트 리스너
         googleMap?.setOnCameraIdleListener {
             currentCenter = googleMap?.cameraPosition?.target
         }
+
+        // 3. ViewModel에서 마커 리스트가 로드된 후 첫 번째 마커로 이동
+        markerViewModel.markerList.observe(this) { markerList ->
+            if (markerList.isNotEmpty()) {
+                // 첫 번째 마커 좌표로 지도 이동
+//                moveToFirstMarkerIfNeeded(markerList)
+            } else {
+                Log.d("GisActivity", "No markers found.")
+            }
+        }
     }
+
 
     private fun moveToCurrentLocation() {
         if (ContextCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_FINE_LOCATION)
@@ -981,7 +1012,7 @@ class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.Con
 
         // 선택된 모델을 가져오기
         val selectedModel = dialogView.findViewById<Spinner>(R.id.spinner_model).selectedItem.toString()
-        val modelData = when (selectedModel) {
+        var modelData = when (selectedModel) {
             "WinDS3300" -> "model_r"
             "WinDS3000" -> "model_b"
             "DS205-8MW" -> "model_g"
@@ -1011,7 +1042,14 @@ class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.Con
         }
     }
     // 마커 위치 업데이트 (모델과 각도 포함)
-    private fun updateMarkerPosition(marker: Marker, latitude: Double, longitude: Double, title: String, model: String, degree: Long) {
+    private fun updateMarkerPosition(
+        marker: Marker,
+        latitude: Double,
+        longitude: Double,
+        title: String,
+        model: String,
+        degree: Long
+    ) {
         marker.position = LatLng(latitude, longitude)
         marker.title = title // 새 제목으로 마커의 title 업데이트
         marker.showInfoWindow() // InfoWindow를 갱신
@@ -1019,24 +1057,39 @@ class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.Con
 
         Toast.makeText(this@GisActivity, "마커가 업데이트되었습니다.", Toast.LENGTH_SHORT).show()
 
-        // 서버로 마커 정보 업데이트
-        val updatedMarker = com.example.liststart.model.Marker(
+        // 변환된 값을 캐시에 저장할 모델명
+        val modelForCache = when (model) {
+            "model_r" -> "WinDS3300"
+            "model_b" -> "WinDS3000"
+            "model_g" -> "DS205-8MW"
+            "model_y" -> "WinDS5500"
+            else -> model // 모델이 변환되지 않을 경우 원래 값을 유지
+        }
+
+        // 캐시에 저장할 Marker 객체
+        val cachedMarker = com.example.liststart.model.Marker(
             mno = marker.tag as? Long ?: 0L,
             regdate = "", // 필요시 처리
             update = "", // 필요시 처리
-            degree = degree, // 업데이트된 각도
+            degree = degree,
             latitude = latitude,
             longitude = longitude,
-            bno = data?.bno ?: 0L, // 사업 ID
-            model = model, // 선택한 모델
-            title = title // 새로 입력된 제목으로 업데이트
+            bno = data?.bno ?: 0L,
+            model = modelForCache, // 캐시에는 변환된 값을 저장
+            title = title
         )
 
         // 캐시에 저장
-        markerCache[updatedMarker.mno] = updatedMarker
+        markerCache[cachedMarker.mno] = cachedMarker
+
+
+        // 로컬 DB나 서버에 저장할 Marker 객체 (원래 모델 값을 유지)
+        val updatedMarkerForServer = cachedMarker.copy(
+            model = model // 서버에는 변환되지 않은 원래 값을 저장
+        )
 
         // 서버 업데이트
-        markerViewModel.updateMarker(updatedMarker)
+        markerViewModel.updateMarker(updatedMarkerForServer)
     }
 
     // 삭제 버튼 클릭 이벤트 처리
