@@ -1,16 +1,14 @@
 package com.example.liststart.viewmodel
 
-import android.util.Log
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.liststart.datasource.BusinessDataSource
 import com.example.liststart.model.Business
-import com.example.liststart.repository.BusinessRepository
-import com.example.liststart.view.TAG
 import kotlinx.coroutines.launch
 
-class BusinessViewModel(private val businessRepository: BusinessRepository) : ViewModel() {
+class BusinessViewModel(private val businessDataSource: BusinessDataSource) : ViewModel() {
 
     // Business List
     private var businessItems: MutableList<Business> = mutableListOf()
@@ -28,13 +26,17 @@ class BusinessViewModel(private val businessRepository: BusinessRepository) : Vi
     val error: LiveData<String>
         get() = _error
 
-    // 비즈니스 목록을 로컬 DB에서 로드하는 함수
+    // 비즈니스 목록을 서버에서 로드하는 함수
     fun loadBusinessList() {
         viewModelScope.launch {
             try {
-                val businesses = businessRepository.getAllBusinesses() // DB에서 데이터 가져오기
-                businessItems = businesses.toMutableList()
-                _businessList.value = businessItems
+                val response = businessDataSource.getBusinessList()
+                if (response.isSuccessful && response.body() != null) {
+                    businessItems = response.body()!!.toMutableList()
+                    _businessList.value = businessItems
+                } else {
+                    _error.value = "데이터를 가져오는 데 실패했습니다: ${response.message()}"
+                }
             } catch (e: Exception) {
                 _error.value = "데이터를 가져오는 중 오류가 발생했습니다: ${e.localizedMessage}"
             }
@@ -45,11 +47,14 @@ class BusinessViewModel(private val businessRepository: BusinessRepository) : Vi
     fun addBusiness(business: Business) {
         viewModelScope.launch {
             try {
-                val newBusinessId = businessRepository.insertBusiness(business)  // 삽입된 bno 값 반환
-                val updatedBusiness = business.copy(bno = newBusinessId)  // 반환된 bno 값으로 업데이트
-
-                businessItems.add(0, updatedBusiness)  // 업데이트된 비즈니스 추가
-                _businessList.value = businessItems.toMutableList()  // 리스트 업데이트
+                val response = businessDataSource.addBusiness(business)
+                val newBusiness = response.body() // response.body()를 로컬 변수에 할당
+                if (response.isSuccessful && newBusiness != null) {
+                    businessItems.add(0, newBusiness)
+                    _businessList.value = businessItems.toMutableList() // 업데이트된 리스트 반영
+                } else {
+                    _error.value = "비즈니스를 추가하는 데 실패했습니다: ${response.message()}"
+                }
             } catch (e: Exception) {
                 _error.value = "비즈니스 추가 중 오류가 발생했습니다: ${e.localizedMessage}"
             }
@@ -60,10 +65,13 @@ class BusinessViewModel(private val businessRepository: BusinessRepository) : Vi
     fun deleteSelectedBusinesses(ids: List<Long>) {
         viewModelScope.launch {
             try {
-                val businessesToDelete = businessItems.filter { it.bno in ids }
-                businessRepository.deleteBusinesses(businessesToDelete) // `List<Business>`로 삭제
-                businessItems.removeAll { it.bno in ids }
-                _businessList.value = businessItems.toMutableList() // 업데이트된 리스트 반영
+                val response = businessDataSource.deleteBusinesses(ids)
+                if (response.isSuccessful) {
+                    businessItems.removeAll { it.bno in ids }
+                    _businessList.value = businessItems.toMutableList() // 업데이트된 리스트 반영
+                } else {
+                    _error.value = "비즈니스를 삭제하는 데 실패했습니다: ${response.message()}"
+                }
             } catch (e: Exception) {
                 _error.value = "비즈니스 삭제 중 오류가 발생했습니다: ${e.localizedMessage}"
             }
@@ -80,15 +88,24 @@ class BusinessViewModel(private val businessRepository: BusinessRepository) : Vi
 
         viewModelScope.launch {
             try {
-                businessRepository.updateBusiness(business) // DB에서 데이터 수정
-                // businessItems에서 bno 값이 일치하는 아이템을 찾아 업데이트
-                val index = businessItems.indexOfFirst { it.bno == bno }
-                if (index != -1) {
-                    businessItems[index] = business
-                }
+                val response = businessDataSource.updateBusiness(bno, business)
+                if (response.isSuccessful && response.body() != null) {
+                    // 서버에서 반환된 업데이트된 비즈니스 객체를 가져옴
+                    val updatedBusiness = response.body()
 
-                // 업데이트된 리스트를 반영
-                _businessList.value = businessItems.toMutableList()
+                    // businessItems에서 bno 값이 일치하는 아이템을 찾아 업데이트
+                    updatedBusiness?.let { updatedItem ->
+                        val index = businessItems.indexOfFirst { it.bno == updatedItem.bno }
+                        if (index != -1) {
+                            businessItems[index] = updatedItem
+                        }
+
+                        // 업데이트된 리스트를 반영
+                        _businessList.value = businessItems.toMutableList()
+                    }
+                } else {
+                    _error.value = "비즈니스를 수정하는 데 실패했습니다: ${response.message()}"
+                }
             } catch (e: Exception) {
                 _error.value = "비즈니스 수정 중 오류가 발생했습니다: ${e.localizedMessage}"
             }
@@ -105,13 +122,17 @@ class BusinessViewModel(private val businessRepository: BusinessRepository) : Vi
     }
 
     // 현재 선택되어 넘어간 비즈니스를 제외하여 화면에 띄우기
-    fun loadBusinessListFromDbExcluding(excludeBusiness: Business) {
+    fun loadBusinessListExcluding(excludeBusiness: Business) {
         viewModelScope.launch {
             try {
-                val businesses = businessRepository.getAllBusinesses() // DB에서 데이터 가져오기
-                // excludeBusiness와 bno가 다른 항목만 필터링
-                businessItems = businesses.filter { it.bno != excludeBusiness.bno }.toMutableList()
-                _businessList.value = businessItems
+                val response = businessDataSource.getBusinessList()
+                if (response.isSuccessful && response.body() != null) {
+                    // excludeBusiness와 bno가 다른 항목만 필터링
+                    businessItems = response.body()!!.filter { it.bno != excludeBusiness.bno }.toMutableList()
+                    _businessList.value = businessItems
+                } else {
+                    _error.value = "데이터를 가져오는 데 실패했습니다: ${response.message()}"
+                }
             } catch (e: Exception) {
                 _error.value = "데이터를 가져오는 중 오류가 발생했습니다: ${e.localizedMessage}"
             }
@@ -150,4 +171,5 @@ class BusinessViewModel(private val businessRepository: BusinessRepository) : Vi
             checkedItems.joinToString("\n")
         }
     }
+
 }

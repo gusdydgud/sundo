@@ -1,4 +1,5 @@
 package com.example.liststart.view
+
 import android.app.Dialog
 import android.content.Context
 import android.content.Intent
@@ -7,7 +8,6 @@ import android.os.Build
 import android.os.Bundle
 import android.text.Editable
 import android.text.TextWatcher
-import android.util.Log
 import android.view.View
 import android.view.WindowManager
 import android.widget.EditText
@@ -42,10 +42,7 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-        // 데이터베이스 초기화
-        DataSourceProvider.initializeDatabase(this)
-
-        // ViewModel 초기화 - 로컬 DB를 사용하는 ViewModel로 변경
+        // ViewModel 초기화
         val viewModelFactory = DataSourceProvider.businessViewModelFactory
         businessViewModel = ViewModelProvider(this, viewModelFactory).get(BusinessViewModel::class.java)
 
@@ -70,7 +67,6 @@ class MainActivity : AppCompatActivity() {
         // BusinessViewModel의 데이터를 관찰하여 RecyclerView 업데이트
         businessViewModel.businessList.observe(this) { businessList ->
             businessAdapter.updateList(businessList)
-
         }
 
         // 체크박스 가시성 상태 관찰
@@ -84,7 +80,7 @@ class MainActivity : AppCompatActivity() {
             Toast.makeText(this, message, Toast.LENGTH_SHORT).show()
         }
 
-        // 로컬 DB에서 데이터 로드
+        // 네트워크 상태 확인 후 데이터 로드
         loadInitialBusinessData()
 
         // 추가 버튼 클릭 리스너
@@ -118,9 +114,13 @@ class MainActivity : AppCompatActivity() {
         setupBackPressed()
     }
 
-    // 로컬 DB에서 비즈니스 데이터 로드
+    // 초기 비즈니스 데이터 로드
     private fun loadInitialBusinessData() {
-        businessViewModel.loadBusinessList() // 로컬 DB에서 데이터 로드
+        if (Constants.isNetworkAvailable(this)) {
+            businessViewModel.loadBusinessList() // 초기 데이터 로드
+        } else {
+            Toast.makeText(this, "네트워크 연결이 필요합니다.", Toast.LENGTH_SHORT).show()
+        }
     }
 
     // 아이템 클릭 처리
@@ -128,7 +128,6 @@ class MainActivity : AppCompatActivity() {
         // GIS 화면으로 이동
         val intent = Intent(this, GisActivity::class.java)
         intent.putExtra("data", data)
-        Log.d(TAG, "handleClick:$data "  )
         startActivity(intent)
     }
 

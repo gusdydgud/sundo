@@ -13,35 +13,35 @@ import retrofit2.http.Path
 interface TurbineAPIService {
 
     @Headers("Content-Type: application/json")
-    @GET("get/business/all")
+    @GET("business/all")
     suspend fun getBusinessAll(): Response<List<Business>>
 
     @Headers("Content-Type: application/json")
-    @POST("post/business/add")
+    @POST("business/add")
     suspend fun addBusiness(@Body business: Business): Response<Business>
 
     @Headers("Content-Type: application/json")
-    @POST("delete/business")
+    @POST("business/delete")
     suspend fun deleteBusinesses(@Body ids: List<Long>): Response<Unit>
 
     @Headers("Content-Type: application/json")
-    @POST("post/business/update/{bno}")
+    @POST("business/update/{bno}")
     suspend fun updateBusiness(@Path(value = "bno") bno: Long, @Body business: Business): Response<Business>
 
     @Headers("Content-Type: application/json")
-    @GET("get/marker/{bno}")
+    @GET("marker/{bno}")
     suspend fun getMarkerList(@Path(value = "bno") bno: Long): Response<List<Marker>>
 
     @Headers("Content-Type: application/json")
-    @POST("post/marker/add")
+    @POST("pmarker/add")
     suspend fun addMarker(@Body marker: Marker): Response<Marker>
 
     @Headers("Content-Type: application/json")
-    @POST("post/marker/update/{mno}")
+    @POST("marker/update/{mno}")
     suspend fun updateMarker(@Path(value = "mno") mno: Long, @Body marker: Marker): Response<Marker>
 
     @Headers("Content-Type: application/json")
-    @DELETE("delete/marker/{mno}")
+    @DELETE("marker/delete/{mno}")
     suspend fun deleteMarker(@Path("mno") mno: Long): Response<Unit>
 
 }
