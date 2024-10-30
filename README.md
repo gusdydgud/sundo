@@ -118,7 +118,7 @@ GIS 데이터를 활용해 규제구역을 시각화하고, 특정 구역을 지
 </details>
 <details>
   <summary>앱 시연 영상</summary>
- (https://img.youtube.com/vi/4MC1U-KiqQk/0.jpg)](https://www.youtube.com/watch?v=4MC1U-KiqQk)
+ https://www.youtube.com/watch?v=4MC1U-KiqQk
 
 </details>
 <details>
