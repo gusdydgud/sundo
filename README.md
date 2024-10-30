@@ -31,7 +31,12 @@ GIS 데이터를 활용해 규제구역을 시각화하고, 특정 구역을 지
 <br/>
 <details>
   <summary>발표 PPT</summary>
- [강남인재KDT-6선도소프트(4조)_발표자료.pdf](https://github.com/user-attachments/files/17564512/KDT-6.4._.pdf)
+ (https://drive.google.com/file/d/1CDhb5X1l-s7_On3fcN_zDnr2_tkKyavn/view?usp=drive_link)
+
+</details>
+<details>
+  <summary>앱 사용설명서</summary>
+ https://drive.google.com/file/d/1yjsyjE6j19q6d-5RsvpgJQeu18mBnWqW/view?usp=drive_link
 
 </details>
 <details>
