@@ -1,5 +1,6 @@
 package com.example.liststart.viewmodel
 
+import android.util.Log
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
@@ -43,24 +44,37 @@ class MarkerViewModel(private val markerDataSource: MarkerDataSource) : ViewMode
         }
     }
 
-    // 새 마커 추가
+    // 마커 추가 시 로그 출력
     fun addMarker(marker: Marker, onSuccess: (Marker) -> Unit, onFailure: (String) -> Unit) {
         viewModelScope.launch {
             try {
+                Log.d("MarkerLog", "마커 추가 요청 시작")
+                Log.d("MarkerLog", "전송할 마커 데이터: $marker")
+
                 val response = markerDataSource.addMarker(marker)
                 val newMarker = response.body()
+
                 if (response.isSuccessful && newMarker != null) {
                     markerItems.add(0, newMarker)
-                    _markerList.postValue(markerItems.toMutableList()) // 목록 업데이트
-                    onSuccess(newMarker) // UI에 알림
+                    _markerList.postValue(markerItems.toMutableList())
+                    Log.d("MarkerLog", "마커 추가 성공: $newMarker")
+                    onSuccess(newMarker)
                 } else {
-                    onFailure("마커 추가 실패: ${response.message()}")
+                    val errorCode = response.code()
+                    val errorMessage = response.message()
+                    val errorBody = response.errorBody()?.string() // 에러 본문 추가로 출력
+
+                    Log.e("MarkerLog", "마커 추가 실패: $errorMessage (상태 코드: $errorCode, 에러 본문: $errorBody)")
+                    onFailure("마커 추가 실패: $errorMessage (상태 코드: $errorCode, 에러 본문: $errorBody)")
                 }
             } catch (e: Exception) {
+                Log.e("MarkerLog", "마커 추가 중 오류 발생: ${e.localizedMessage}")
                 onFailure("마커 추가 중 오류 발생: ${e.localizedMessage}")
             }
         }
     }
+
+
 
     // mno로 마커 삭제
     fun deleteMarker(mno: Long, bno: Long) {

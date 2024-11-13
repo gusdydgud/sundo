@@ -525,7 +525,7 @@ class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.Con
                         latitude = currentCenter.latitude,
                         longitude = currentCenter.longitude,
                         bno = data?.bno ?: 0L,
-                        model = "model1",
+                        model = "두산중공업 풍력 발전기",
                         title = (title ?: "사업체명") + " $markerCounter"
                     )
                     saveMarkerToServer(marker)
@@ -893,8 +893,8 @@ class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.Con
     private fun setupModelSpinner(dialogView: View, selectedModel: String?) {
         val modelSpinner = dialogView.findViewById<Spinner>(R.id.spinner_model)
         val modelImageView = dialogView.findViewById<ImageView>(R.id.model_image)
-        val models = arrayOf("모델 1", "모델 2", "모델 3")
-        val modelImages = arrayOf(R.drawable.fan, R.drawable.fan, R.drawable.fan)
+        val models = arrayOf("두산중공업 풍력 발전기", "현대중공업 풍력 발전기")
+        val modelImages = arrayOf(R.drawable.fan, R.drawable.fan)
 
         val adapter = ArrayAdapter(this, android.R.layout.simple_spinner_item, models)
         adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
@@ -974,6 +974,13 @@ class GisActivity : AppCompatActivity(), OnMapReadyCallback, GoogleApiClient.Con
         // 선택된 모델을 가져오기
         val selectedModel = dialogView.findViewById<Spinner>(R.id.spinner_model).selectedItem.toString()
 
+        val modelData = when (selectedModel) {
+            "WinDS3300" -> "model_r"
+            "WinDS3000" -> "model_b"
+            "DS205-8MW" -> "model_g"
+            "WinDS5500" -> "model_y"
+            else -> null  // 또는 기본값을 설정할 수 있습니다.
+        }
         // 입력된 각도를 가져오기
         val degreeValue = dialogView.findViewById<EditText>(R.id.edit_angle).text.toString().toLongOrNull() ?: 0L
 
