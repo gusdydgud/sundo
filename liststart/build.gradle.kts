@@ -61,6 +61,8 @@ dependencies {
     implementation(libs.androidx.lifecycle.viewmodel.ktx)
     implementation(libs.androidx.lifecycle.livedata.ktx)
     implementation(libs.androidx.activity.ktx)
+    implementation(libs.bumptech.glide)
+    annotationProcessor(libs.bumptech.glide.compiler)
 
     // 테스트 라이브러리
     testImplementation(libs.mockwebserver)

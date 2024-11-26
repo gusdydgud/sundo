@@ -15,4 +15,6 @@
     <string name="test_title">가산 풍력디지털 단지</string>
     <string name="test_date">2024.09.05</string>
 
+    <string name="splash_image_description">Splash screen GIF displaying the app logo</string>
+
 </resources>
