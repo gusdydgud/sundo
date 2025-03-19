@@ -13,7 +13,7 @@ GIS 데이터를 활용해 규제구역을 시각화하고, 특정 구역을 지
 | [<img src="https://avatars.githubusercontent.com/gusdydgud" height=90> <br/> @gusdydgud](https://github.com/gusdydgud) | [<img src="https://avatars.githubusercontent.com/Bluemingcloud" height=90> <br/> @Bluemingcloud](https://github.com/Bluemingcloud) | [<img src="https://avatars.githubusercontent.com/jinseok1212" height=90> <br/> @jinseok1212](https://github.com/jinseok1212) |[<img src="https://avatars.githubusercontent.com/mg-seo" height=90> <br/> @mg-seo](https://github.com/mg-seo) |
 
 ### 팀원의 주요 역할
-- **김현용**: 안드로이드 로컬 DB 구축, 지도 API 좌표 지정, 마커 추가 및 수정, 뒤로 가기 종료 기능 등
+- **김현용**: 안드로이드 로컬 DB 구축, 지도 API 좌표 지정, 마커 추가 및 수정 등
 - **백수민**: 메인 UI 설계 및 사업 관련 기능 구현, 모듈 간 데이터 통신 구현, 유니티와 안드로이드 통합 작업
 - **서무경**: 스플래시 화면 및 나침반 UI 구성
 - **이진석**: 규제지역 API 활용, 마커 배치 및 지도 화면 UI 설계
